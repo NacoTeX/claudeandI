@@ -39,9 +39,12 @@ for add-on installation instructions.
       choice turned out to be compile-time only — ESPectre doesn't expose
       it as a runtime entity — so that still goes through a Phase 2
       rebuild, not a runtime push.)
-- [ ] **Phase 4 — Dashboard/visualizer.** Live view of all devices and
-      zones; optional use of ESPectre's BLE telemetry channel for
-      higher-resolution (40ms) visualization.
+- [x] **Phase 4 — Dashboard/visualizer.** A glanceable dashboard tile per
+      device/zone, plus an optional direct Web Bluetooth connection
+      (BLE-capable boards only) for ESPectre's native-rate telemetry —
+      implemented against ESPectre's documented BLE game-client protocol,
+      but not exercised against real hardware (no BLE-capable
+      browser/device in this environment).
 - [ ] **Phase 5 — Polish.** Airtime estimation, presets, optional Matter
       export.
 

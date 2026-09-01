@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0
+
+- Phase 4: live dashboard and optional high-resolution BLE visualizer.
+  - New "Dashboard" tab: a glass-tile view of every device and zone at a
+    glance, status dots polled from Home Assistant (same as Devices/Zones).
+  - Optional per-device "Connect live (BLE)" button on BLE-capable boards
+    (ESP32, C3, C5, C6, S3 — not S2) opens a direct Web Bluetooth
+    connection to the device itself (no backend involved) for movement/
+    threshold telemetry at ESPectre's native ~10-50ms notify rate, using
+    the GATT protocol documented in ESPectre's own browser game client
+    (service `d33ff46b-…`, little-endian float32 telemetry, ASCII control
+    commands) — see `espectre_hub/DOCS.md`.
+  - This BLE path is implemented strictly to that documented spec and its
+    binary/text parsing is unit-verified, but the live device connection
+    itself has not been exercised against real ESPectre hardware — no
+    Bluetooth-capable browser or device was available to test with. The
+    polling-based dashboard tiles remain the verified fallback.
+
 ## 0.3.0
 
 - Phase 3: zones and runtime configuration.

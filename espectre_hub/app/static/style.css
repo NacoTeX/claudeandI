@@ -376,3 +376,117 @@ esp-web-install-button button[slot="activate"] {
   padding: 0.25rem 0.65rem;
   font-size: 0.8rem;
 }
+
+/* Dashboard (Phase 4): glass tiles, deliberately a step glossier than the
+   flat management tabs — this is the glanceable "look at everything" view. */
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.glass-tile {
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 20px;
+  padding: 1.25rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.glass-tile-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.glass-tile-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.tile-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.tile-dot-on {
+  background: var(--ok);
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--ok) 70%, transparent);
+}
+
+.tile-dot-off {
+  background: var(--border);
+}
+
+.tile-dot-unknown {
+  background: var(--warn);
+}
+
+.tile-sub {
+  margin: 0.3rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.ble-connect-btn {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 10px;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.ble-connect-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ble-gauge {
+  margin-top: 0.85rem;
+}
+
+.gauge-track {
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  overflow: hidden;
+}
+
+.gauge-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--muted);
+  transition: width 60ms linear;
+}
+
+.gauge-fill-on {
+  background: var(--ok);
+}
+
+.gauge-readout {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.gauge-sysinfo {
+  margin: 0.3rem 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.ble-error {
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+}
