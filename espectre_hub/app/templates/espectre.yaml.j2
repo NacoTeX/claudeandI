@@ -1,0 +1,53 @@
+{#
+  Per-device ESPHome configuration for an ESPectre presence sensor.
+  Rendered by app/builder.py from a validated DeviceCreate payload — see
+  https://github.com/francescopace/espectre/blob/main/SETUP.md for the
+  upstream component reference this is based on.
+#}
+esphome:
+  name: {{ device_name }}
+  friendly_name: {{ friendly_name | tojson }}
+
+esp32:
+  board: {{ board.esphome_board }}
+{% if board.variant %}
+  variant: {{ board.variant }}
+{% endif %}
+  framework:
+    type: esp-idf
+    version: 5.5.1
+
+wifi:
+  ssid: {{ wifi_ssid | tojson }}
+  password: {{ wifi_password | tojson }}
+{% if wifi_bssid %}
+  bssid: {{ wifi_bssid | tojson }}
+{% endif %}
+api:
+ota:
+  platform: esp32
+
+logger:
+  level: INFO
+
+captive_portal:
+
+improv_serial:
+
+external_components:
+  - source: github://francescopace/espectre@main
+    components: [espectre]
+
+espectre:
+  detection_algorithm: {{ detection_algorithm }}
+  traffic_generator_rate: {{ traffic_generator_rate }}
+  traffic_generator_mode: {{ traffic_generator_mode }}
+  segmentation_threshold: {{ segmentation_threshold }}
+  movement_sensor:
+    name: "Movement Score"
+  motion_sensor:
+    name: "Motion Detected"
+  threshold_number:
+    name: "Threshold"
+  calibrate_switch:
+    name: "Calibrate"

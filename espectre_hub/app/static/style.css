@@ -1,0 +1,492 @@
+:root {
+  color-scheme: light dark;
+  --bg: #0f1115;
+  --panel: #1a1d24;
+  --border: #2a2e38;
+  --text: #e7e9ee;
+  --muted: #9aa0ac;
+  --accent: #5eead4;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --err: #f87171;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0.25rem 0 2rem;
+  color: var(--muted);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+}
+
+.card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.status {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.status-pending { color: var(--muted); }
+.status-ok { color: var(--ok); }
+.status-warn { color: var(--warn); }
+.status-err { color: var(--err); }
+
+.roadmap h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.roadmap ol {
+  padding-left: 1.25rem;
+  color: var(--muted);
+}
+
+.roadmap li.done {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1.5rem 0 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 0.6rem 0.2rem;
+  margin-right: 1.25rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-btn.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.notice {
+  background: var(--panel);
+  border: 1px solid var(--warn);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.notice code {
+  color: var(--text);
+}
+
+.device-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.device-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.device-form input,
+.device-form select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.5rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+.device-form button,
+.device-actions button {
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #06231d;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+}
+
+.device-form button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.device-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.device-actions .delete-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.device-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.device-card-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.device-card-header .status {
+  font-size: 0.85rem;
+}
+
+.device-meta {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.device-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.build-log {
+  max-height: 260px;
+  overflow: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+esp-web-install-button {
+  display: inline-block;
+  margin-top: 0.5rem;
+}
+
+esp-web-install-button button[slot="activate"] {
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #06231d;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: -0.25rem 0 1rem;
+}
+
+.live-block {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+
+.live-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.live-label {
+  color: var(--muted);
+}
+
+.live-motion,
+.live-score {
+  font-weight: 600;
+}
+
+.threshold-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.threshold-form label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.threshold-form input {
+  width: 5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.35rem 0.5rem;
+}
+
+.threshold-form button,
+.calibrate-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+
+.live-error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.entity-editor {
+  margin-top: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.entity-editor label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.4rem 0;
+}
+
+.entity-editor input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.save-entities-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  margin-top: 0.3rem;
+}
+
+.zone-devices-label {
+  grid-column: 1 / -1;
+}
+
+.zone-device-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+}
+
+.zone-device-option {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.zone-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.chip {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+/* Dashboard (Phase 4): glass tiles, deliberately a step glossier than the
+   flat management tabs — this is the glanceable "look at everything" view. */
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.glass-tile {
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 20px;
+  padding: 1.25rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.glass-tile-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.glass-tile-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.tile-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.tile-dot-on {
+  background: var(--ok);
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--ok) 70%, transparent);
+}
+
+.tile-dot-off {
+  background: var(--border);
+}
+
+.tile-dot-unknown {
+  background: var(--warn);
+}
+
+.tile-sub {
+  margin: 0.3rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.ble-connect-btn {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 10px;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.ble-connect-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ble-gauge {
+  margin-top: 0.85rem;
+}
+
+.gauge-track {
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  overflow: hidden;
+}
+
+.gauge-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--muted);
+  transition: width 60ms linear;
+}
+
+.gauge-fill-on {
+  background: var(--ok);
+}
+
+.gauge-readout {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.gauge-sysinfo {
+  margin: 0.3rem 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.ble-error {
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+}

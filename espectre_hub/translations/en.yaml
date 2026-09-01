@@ -1,0 +1,5 @@
+configuration:
+  log_level:
+    name: Log level
+    description: Controls the verbosity of the add-on's own log output.
+network: {}

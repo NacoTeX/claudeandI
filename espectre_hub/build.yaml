@@ -1,0 +1,10 @@
+build_from:
+  aarch64: ghcr.io/home-assistant/aarch64-base-debian:bookworm
+  amd64: ghcr.io/home-assistant/amd64-base-debian:bookworm
+  armv7: ghcr.io/home-assistant/armv7-base-debian:bookworm
+labels:
+  org.opencontainers.image.title: ESPectre Hub
+  org.opencontainers.image.description: >-
+    Self-hosted Wi-Fi CSI presence detection hub built on ESPectre.
+  org.opencontainers.image.source: https://github.com/nacotex/test
+  org.opencontainers.image.licenses: GPL-3.0-or-later
