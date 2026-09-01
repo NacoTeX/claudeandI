@@ -15,6 +15,7 @@
       <nav class="tabs">
         <button class="tab-btn active" data-tab="overview">Overview</button>
         <button class="tab-btn" data-tab="devices">Devices</button>
+        <button class="tab-btn" data-tab="zones">Zones</button>
       </nav>
     </header>
 
@@ -34,8 +35,8 @@
         <h2>Roadmap</h2>
         <ol>
           <li class="done">Phase 1 — Add-on skeleton</li>
-          <li class="done">Phase 2 — Browser-based device flashing (this page)</li>
-          <li>Phase 3 — Zones &amp; configuration</li>
+          <li class="done">Phase 2 — Browser-based device flashing</li>
+          <li class="done">Phase 3 — Zones &amp; configuration (this page)</li>
           <li>Phase 4 — Dashboard / visualizer</li>
           <li>Phase 5 — Polish</li>
         </ol>
@@ -88,12 +89,46 @@
 
       <section>
         <h2>Devices</h2>
+        <p class="hint">
+          Once a device is built and flashed, its card shows live motion
+          state and lets you push a new detection threshold or trigger
+          recalibration — read from Home Assistant, using the entity ids
+          under "HA entity ids" (best-effort guesses; edit them if a device
+          shows as unavailable).
+        </p>
         <div id="device-list" class="device-list"></div>
+      </section>
+    </section>
+
+    <section id="tab-zones" class="tab-panel" hidden>
+      <section class="card">
+        <h2>Add a zone</h2>
+        <form id="zone-form" class="device-form">
+          <label>Zone name
+            <input name="name" placeholder="Ground Floor" required maxlength="64">
+          </label>
+          <label class="zone-devices-label">Devices
+            <div id="zone-device-picker" class="zone-device-picker"></div>
+          </label>
+          <button type="submit">Add zone</button>
+        </form>
+        <p id="zone-form-error" class="status status-err" hidden></p>
+      </section>
+
+      <section>
+        <h2>Zones</h2>
+        <p class="hint">
+          A zone reports "occupied" when any of its member devices currently
+          detects motion (OR-logic) — the same aggregation TOMMY calls
+          zone/topology mode, kept simple for now.
+        </p>
+        <div id="zone-list" class="device-list"></div>
       </section>
     </section>
   </main>
 
   <script src="static/app.js"></script>
   <script src="static/devices.js"></script>
+  <script src="static/zones.js"></script>
 </body>
 </html>

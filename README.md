@@ -8,7 +8,7 @@ TOMMY is a closed-source, lifetime-license product built on ESP32 hardware.
 This project provides the same core idea (detect motion/presence by
 measuring how bodies disturb Wi-Fi signals between a router and a cheap
 ESP32 sensor — no wearable or phone required) as an open-source Home
-Assistant add-on, built on top of [ESPectre](https://github.com/latonita/espectre)
+Assistant add-on, built on top of [ESPectre](https://github.com/francescopace/espectre)
 (GPLv3), which already exposes a native ESPHome component for CSI-based
 presence sensing.
 
@@ -32,11 +32,13 @@ for add-on installation instructions.
       Tools (Web Serial API), with the backend compiling a per-device
       ESPectre YAML (name, Wi-Fi credentials, algorithm parameters) into a
       `.bin` on demand.
-- [ ] **Phase 3 — Zones & configuration.** UI for grouping devices into
-      zones, presence aggregation (starting with simple OR-logic, later
-      full topology), and pushing runtime parameters (threshold,
-      `mvs`/`ml` algorithm choice) to devices via the HA entities ESPectre
-      already exposes.
+- [x] **Phase 3 — Zones & configuration.** UI for grouping devices into
+      zones with OR-logic presence aggregation, and pushing the detection
+      threshold / triggering recalibration to already-flashed devices via
+      the HA entities ESPectre already exposes. (The `mvs`/`ml` algorithm
+      choice turned out to be compile-time only — ESPectre doesn't expose
+      it as a runtime entity — so that still goes through a Phase 2
+      rebuild, not a runtime push.)
 - [ ] **Phase 4 — Dashboard/visualizer.** Live view of all devices and
       zones; optional use of ESPectre's BLE telemetry channel for
       higher-resolution (40ms) visualization.

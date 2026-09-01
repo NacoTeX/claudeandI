@@ -1,7 +1,7 @@
 # ESPectre Hub
 
 Self-hosted Wi-Fi CSI presence detection hub, built on
-[ESPectre](https://github.com/latonita/espectre) — an open-source,
+[ESPectre](https://github.com/francescopace/espectre) — an open-source,
 license-free alternative to [TOMMY](https://www.tommysense.com).
 
 ## Installation
@@ -19,8 +19,8 @@ license-free alternative to [TOMMY](https://www.tommysense.com).
 
 ## Current phase
 
-This add-on is at **Phase 2**: device management and browser-based
-flashing, on top of the Phase 1 skeleton (Ingress UI, bundled ESPHome CLI).
+This add-on is at **Phase 3**: zones and runtime configuration, on top of
+Phase 1 (add-on skeleton) and Phase 2 (device flashing).
 
 ### Flashing a device
 
@@ -39,8 +39,40 @@ flashing, on top of the Phase 1 skeleton (Ingress UI, bundled ESPHome CLI).
    reachable over plain HTTP on your LAN, open the add-on directly at
    `http://<host>:8099` from the same machine you're flashing from.
 
-Zone configuration and the live dashboard are not implemented yet — see
-the repository README for the full roadmap.
+### Live state and runtime configuration
+
+Once a device is built (it doesn't need to be reflashed for this — the
+firmware from step 3 already includes it), its card also shows live
+motion/movement-score state, a **threshold** control, and a
+**Recalibrate** button. These are read and pushed through Home
+Assistant's own Core API (this add-on requests `homeassistant_api: true`
+for that), targeting the `binary_sensor`/`sensor`/`number`/`switch`
+entities ESPectre's ESPHome component already exposes for each device —
+so the device needs to actually be added to Home Assistant (normally
+auto-discovered via the ESPHome integration once it's on your network)
+for this to work; a freshly flashed device that HA hasn't picked up yet
+will show as "unavailable".
+
+The entity ids used are guessed from the device's name and shown (and
+editable) under "HA entity ids" on its card — open that if a device
+shows as unavailable and check the ids match what Home Assistant
+actually assigned.
+
+Note: the `mvs`/`ml` detection algorithm choice is **not** one of these
+runtime entities — ESPectre only exposes it as a compile-time YAML
+option, so changing it means rebuilding and reflashing on the Devices
+tab, not a Zones-tab control.
+
+### Zones
+
+The **Zones** tab groups devices and reports "occupied" when *any*
+member device currently detects motion (OR-logic — the simplest form of
+the zone/topology aggregation TOMMY offers). Create a zone, tick which
+devices belong to it, and its card polls live state the same way device
+cards do.
+
+The live dashboard/visualizer is not implemented yet — see the
+repository README for the full roadmap.
 
 ## Support
 

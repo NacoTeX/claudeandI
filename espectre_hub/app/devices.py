@@ -85,6 +85,32 @@ class DeviceCreate(BaseModel):
         return v
 
 
+def default_entity_ids(device_name: str) -> dict[str, str]:
+    """Best-guess HA entity ids for the entities ESPectre's SETUP.md documents,
+    following ESPHome's default object_id derivation (device name + slugified
+    entity name). Editable per-device since naming can drift — a manual
+    `id:`/`name:` override in the YAML, an entity_id collision suffix HA
+    added, etc.
+    """
+    slug = device_name.replace("-", "_")
+    return {
+        "entity_motion": f"binary_sensor.{slug}_motion_detected",
+        "entity_movement_score": f"sensor.{slug}_movement_score",
+        "entity_threshold": f"number.{slug}_threshold",
+        "entity_calibrate": f"switch.{slug}_calibrate",
+    }
+
+
+class DeviceUpdate(BaseModel):
+    """Partial update for fields that don't require a rebuild/reflash."""
+
+    friendly_name: str | None = None
+    entity_motion: str | None = None
+    entity_movement_score: str | None = None
+    entity_threshold: str | None = None
+    entity_calibrate: str | None = None
+
+
 class Device(BaseModel):
     id: str
     created_at: float
@@ -95,12 +121,25 @@ class Device(BaseModel):
     build_error: str | None = None
     firmware_bin: str | None = None  # path relative to the device dir, once built
     chip_family: str | None = None
+    # Best-guess Home Assistant entity ids for ESPectre's exposed entities
+    # (see default_entity_ids); user-editable in case the guess is wrong.
+    entity_motion: str | None = None
+    entity_movement_score: str | None = None
+    entity_threshold: str | None = None
+    entity_calibrate: str | None = None
 
     def public(self) -> dict:
         """Serialize with the Wi-Fi password masked."""
         data = self.model_dump()
         data["config"]["wifi_password"] = "********" if self.config.wifi_password else ""
         return data
+
+    def apply_update(self, patch: DeviceUpdate) -> None:
+        for field, value in patch.model_dump(exclude_unset=True).items():
+            if field == "friendly_name":
+                self.config.friendly_name = value
+            else:
+                setattr(self, field, value)
 
 
 def _read_index() -> dict[str, dict]:
@@ -129,7 +168,13 @@ def get_device(device_id: str) -> Device | None:
 
 def create_device(payload: DeviceCreate) -> Device:
     now = time.time()
-    device = Device(id=str(uuid.uuid4()), created_at=now, updated_at=now, config=payload)
+    device = Device(
+        id=str(uuid.uuid4()),
+        created_at=now,
+        updated_at=now,
+        config=payload,
+        **default_entity_ids(payload.name),
+    )
     with _lock:
         index = _read_index()
         index[device.id] = device.model_dump()

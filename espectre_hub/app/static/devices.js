@@ -32,10 +32,14 @@ function statusClass(status) {
   return { success: "status-ok", error: "status-err", running: "status-warn", queued: "status-warn" }[status] || "status-pending";
 }
 
+const ENTITY_FIELDS = ["entity_motion", "entity_movement_score", "entity_threshold", "entity_calibrate"];
+const ENTITY_LABELS = { entity_motion: "Motion", entity_movement_score: "Score", entity_threshold: "Threshold", entity_calibrate: "Calibrate" };
+
 function renderDevice(device) {
   const c = device.config;
   const title = c.friendly_name || c.name;
   const canBuild = device.status !== "queued" && device.status !== "running";
+  const built = device.status === "success";
 
   const logBlock = device.build_log
     ? `<details><summary>Build log</summary><pre class="build-log">${escapeHtml(device.build_log.slice(-4000))}</pre></details>`
@@ -44,12 +48,35 @@ function renderDevice(device) {
     ? `<p class="status status-err">${escapeHtml(device.build_error)}</p>`
     : "";
 
-  const flashBlock = device.status === "success"
+  const flashBlock = built
     ? `<esp-web-install-button manifest="api/devices/${device.id}/manifest.json">
          <button slot="activate">Flash over USB</button>
          <span slot="unsupported">Your browser doesn't support Web Serial (use Chrome or Edge).</span>
          <span slot="not-allowed">Web Serial needs HTTPS or localhost — see the notice above.</span>
        </esp-web-install-button>`
+    : "";
+
+  const liveBlock = built
+    ? `<div class="live-block" data-live-id="${device.id}">
+         <div class="live-row"><span class="live-label">Motion</span><span class="live-motion status status-pending">checking…</span></div>
+         <div class="live-row"><span class="live-label">Movement score</span><span class="live-score">—</span></div>
+         <form class="threshold-form">
+           <label>Threshold
+             <input class="threshold-input" type="number" min="0" max="10" step="0.1" placeholder="0.0–10.0">
+           </label>
+           <button type="submit">Push</button>
+         </form>
+         <button type="button" class="calibrate-btn">Recalibrate</button>
+         <p class="live-error status status-err" hidden></p>
+       </div>
+       <details class="entity-editor">
+         <summary>HA entity ids</summary>
+         ${ENTITY_FIELDS.map((f) => `
+           <label>${ENTITY_LABELS[f]}
+             <input class="entity-input" data-field="${f}" value="${escapeHtml(device[f] || "")}">
+           </label>`).join("")}
+         <button type="button" class="save-entities-btn">Save entity ids</button>
+       </details>`
     : "";
 
   return `
@@ -61,10 +88,11 @@ function renderDevice(device) {
       <p class="device-meta">${escapeHtml(c.name)} · ${escapeHtml(c.board)} · ${escapeHtml(c.detection_algorithm)}</p>
       ${errorLine}
       <div class="device-actions">
-        <button class="build-btn" ${canBuild ? "" : "disabled"}>${device.status === "success" ? "Rebuild" : "Build firmware"}</button>
+        <button class="build-btn" ${canBuild ? "" : "disabled"}>${built ? "Rebuild" : "Build firmware"}</button>
         <button class="delete-btn">Delete</button>
       </div>
       ${flashBlock}
+      ${liveBlock}
       ${logBlock}
     </div>`;
 }
@@ -87,10 +115,125 @@ async function loadDevices() {
     const id = el.dataset.id;
     el.querySelector(".build-btn").addEventListener("click", () => startBuild(id));
     el.querySelector(".delete-btn").addEventListener("click", () => deleteDevice(id));
+
+    const thresholdForm = el.querySelector(".threshold-form");
+    if (thresholdForm) thresholdForm.addEventListener("submit", (evt) => pushThreshold(evt, id));
+
+    const calibrateBtn = el.querySelector(".calibrate-btn");
+    if (calibrateBtn) calibrateBtn.addEventListener("click", () => calibrateDevice(id, calibrateBtn));
+
+    const saveEntitiesBtn = el.querySelector(".save-entities-btn");
+    if (saveEntitiesBtn) saveEntitiesBtn.addEventListener("click", () => saveEntityIds(id, el));
   }
 
   for (const d of devices) {
     if (d.status === "queued" || d.status === "running") pollDevice(d.id);
+    if (d.status === "success") refreshLiveState(d.id);
+  }
+}
+
+async function refreshLiveState(id) {
+  const block = document.querySelector(`.live-block[data-live-id="${id}"]`);
+  if (!block) return;
+  const motionEl = block.querySelector(".live-motion");
+  const scoreEl = block.querySelector(".live-score");
+  const thresholdInput = block.querySelector(".threshold-input");
+  const errorEl = block.querySelector(".live-error");
+
+  let state;
+  try {
+    state = await (await fetch(`api/devices/${id}/state`)).json();
+  } catch (err) {
+    state = { available: false, error: "Failed to reach the backend" };
+  }
+
+  if (!state.available) {
+    motionEl.textContent = "unavailable";
+    motionEl.className = "live-motion status status-warn";
+    scoreEl.textContent = "—";
+    errorEl.textContent = state.error || "Unavailable";
+    errorEl.hidden = false;
+    return;
+  }
+
+  errorEl.hidden = true;
+  motionEl.textContent = state.motion ? "detected" : "clear";
+  motionEl.className = `live-motion status ${state.motion ? "status-ok" : "status-pending"}`;
+  scoreEl.textContent = state.movement_score ?? "—";
+  if (state.threshold != null && document.activeElement !== thresholdInput) {
+    thresholdInput.value = state.threshold;
+  }
+}
+
+function refreshAllLiveStates() {
+  for (const block of document.querySelectorAll(".live-block")) {
+    refreshLiveState(block.dataset.liveId);
+  }
+}
+
+async function pushThreshold(evt, id) {
+  evt.preventDefault();
+  const form = evt.target;
+  const input = form.querySelector(".threshold-input");
+  const value = Number(input.value);
+  const errorEl = form.closest(".live-block").querySelector(".live-error");
+  try {
+    const res = await fetch(`api/devices/${id}/threshold`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      errorEl.textContent = body.detail || "Failed to push threshold";
+      errorEl.hidden = false;
+      return;
+    }
+    errorEl.hidden = true;
+  } catch (err) {
+    errorEl.textContent = "Failed to reach the backend";
+    errorEl.hidden = false;
+  }
+}
+
+async function calibrateDevice(id, button) {
+  const errorEl = button.closest(".live-block").querySelector(".live-error");
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Calibrating…";
+  try {
+    const res = await fetch(`api/devices/${id}/calibrate`, { method: "POST" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      errorEl.textContent = body.detail || "Failed to trigger calibration";
+      errorEl.hidden = false;
+    } else {
+      errorEl.hidden = true;
+    }
+  } catch (err) {
+    errorEl.textContent = "Failed to reach the backend";
+    errorEl.hidden = false;
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
+async function saveEntityIds(id, cardEl) {
+  const patch = {};
+  for (const input of cardEl.querySelectorAll(".entity-input")) {
+    patch[input.dataset.field] = input.value || null;
+  }
+  try {
+    const res = await fetch(`api/devices/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (res.ok) refreshLiveState(id);
+  } catch (err) {
+    // Best-effort — the entity editor has no dedicated error slot; a failed
+    // save just leaves the live state as before.
   }
 }
 
@@ -172,3 +315,4 @@ document.getElementById("device-form").addEventListener("submit", async (evt) =>
 
 loadBoards();
 loadDevices();
+setInterval(refreshAllLiveStates, 5000);

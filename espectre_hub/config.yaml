@@ -1,5 +1,5 @@
 name: ESPectre Hub
-version: "0.2.0"
+version: "0.3.0"
 slug: espectre_hub
 description: >-
   Self-hosted Wi-Fi CSI presence detection hub built on ESPectre — a
@@ -10,6 +10,7 @@ arch:
   - amd64
   - armv7
 init: false
+homeassistant_api: true
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:radar
