@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ESPectre Hub</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>ESPectre Hub</h1>
+      <p class="subtitle">Wi-Fi CSI presence detection, self-hosted</p>
+    </header>
+
+    <section class="cards">
+      <div class="card">
+        <h2>Backend</h2>
+        <p id="health-status" class="status status-pending">checking…</p>
+      </div>
+      <div class="card">
+        <h2>ESPHome</h2>
+        <p id="esphome-status" class="status status-pending">checking…</p>
+      </div>
+    </section>
+
+    <section class="roadmap">
+      <h2>Roadmap</h2>
+      <ol>
+        <li class="done">Phase 1 — Add-on skeleton (this page)</li>
+        <li>Phase 2 — Browser-based device flashing</li>
+        <li>Phase 3 — Zones &amp; configuration</li>
+        <li>Phase 4 — Dashboard / visualizer</li>
+        <li>Phase 5 — Polish</li>
+      </ol>
+    </section>
+  </main>
+
+  <script src="static/app.js"></script>
+</body>
+</html>
