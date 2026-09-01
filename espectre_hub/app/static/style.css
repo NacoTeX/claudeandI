@@ -87,3 +87,153 @@ header h1 {
   color: var(--accent);
   font-weight: 600;
 }
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1.5rem 0 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 0.6rem 0.2rem;
+  margin-right: 1.25rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-btn.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.notice {
+  background: var(--panel);
+  border: 1px solid var(--warn);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.notice code {
+  color: var(--text);
+}
+
+.device-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.device-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.device-form input,
+.device-form select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.5rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+.device-form button,
+.device-actions button {
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #06231d;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+}
+
+.device-form button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.device-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.device-actions .delete-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.device-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.device-card-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.device-card-header .status {
+  font-size: 0.85rem;
+}
+
+.device-meta {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.device-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.build-log {
+  max-height: 260px;
+  overflow: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+esp-web-install-button {
+  display: inline-block;
+  margin-top: 0.5rem;
+}
+
+esp-web-install-button button[slot="activate"] {
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #06231d;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+}

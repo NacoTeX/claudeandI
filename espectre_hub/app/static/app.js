@@ -22,3 +22,12 @@ async function setStatus(elementId, url, formatOk) {
 
 setStatus("health-status", "api/health", () => "online");
 setStatus("esphome-status", "api/esphome/version", (d) => d.version || "installed");
+
+for (const btn of document.querySelectorAll(".tab-btn")) {
+  btn.addEventListener("click", () => {
+    for (const b of document.querySelectorAll(".tab-btn")) b.classList.remove("active");
+    btn.classList.add("active");
+    for (const panel of document.querySelectorAll(".tab-panel")) panel.hidden = true;
+    document.getElementById(`tab-${btn.dataset.tab}`).hidden = false;
+  });
+}

@@ -28,7 +28,7 @@ for add-on installation instructions.
 - [x] **Phase 1 — Add-on skeleton.** HAOS add-on with a Python (FastAPI)
       backend, Ingress-enabled web UI, and ESPHome bundled as an in-container
       dependency (verified via an `/api/esphome/version` health check).
-- [ ] **Phase 2 — Device flashing.** Browser-based flashing via ESP Web
+- [x] **Phase 2 — Device flashing.** Browser-based flashing via ESP Web
       Tools (Web Serial API), with the backend compiling a per-device
       ESPectre YAML (name, Wi-Fi credentials, algorithm parameters) into a
       `.bin` on demand.

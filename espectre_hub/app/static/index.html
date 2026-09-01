@@ -5,37 +5,95 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESPectre Hub</title>
   <link rel="stylesheet" href="static/style.css">
+  <script type="module" src="static/vendor/esp-web-tools/install-button.js"></script>
 </head>
 <body>
   <main>
     <header>
       <h1>ESPectre Hub</h1>
       <p class="subtitle">Wi-Fi CSI presence detection, self-hosted</p>
+      <nav class="tabs">
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="devices">Devices</button>
+      </nav>
     </header>
 
-    <section class="cards">
-      <div class="card">
-        <h2>Backend</h2>
-        <p id="health-status" class="status status-pending">checking…</p>
-      </div>
-      <div class="card">
-        <h2>ESPHome</h2>
-        <p id="esphome-status" class="status status-pending">checking…</p>
-      </div>
+    <section id="tab-overview" class="tab-panel">
+      <section class="cards">
+        <div class="card">
+          <h2>Backend</h2>
+          <p id="health-status" class="status status-pending">checking…</p>
+        </div>
+        <div class="card">
+          <h2>ESPHome</h2>
+          <p id="esphome-status" class="status status-pending">checking…</p>
+        </div>
+      </section>
+
+      <section class="roadmap">
+        <h2>Roadmap</h2>
+        <ol>
+          <li class="done">Phase 1 — Add-on skeleton</li>
+          <li class="done">Phase 2 — Browser-based device flashing (this page)</li>
+          <li>Phase 3 — Zones &amp; configuration</li>
+          <li>Phase 4 — Dashboard / visualizer</li>
+          <li>Phase 5 — Polish</li>
+        </ol>
+      </section>
     </section>
 
-    <section class="roadmap">
-      <h2>Roadmap</h2>
-      <ol>
-        <li class="done">Phase 1 — Add-on skeleton (this page)</li>
-        <li>Phase 2 — Browser-based device flashing</li>
-        <li>Phase 3 — Zones &amp; configuration</li>
-        <li>Phase 4 — Dashboard / visualizer</li>
-        <li>Phase 5 — Polish</li>
-      </ol>
+    <section id="tab-devices" class="tab-panel" hidden>
+      <div class="notice">
+        Flashing uses your browser's Web Serial API, which Chrome/Edge only
+        allow on secure (HTTPS) pages or on <code>localhost</code>. If this
+        Ingress page is served over plain HTTP on your LAN, open it via
+        Home Assistant's HTTPS URL, or open ESPectre Hub directly at
+        <code>http://&lt;host&gt;:8099</code> from the same machine.
+      </div>
+
+      <section class="card">
+        <h2>Add a device</h2>
+        <form id="device-form" class="device-form">
+          <label>Device name
+            <input name="name" placeholder="living-room" pattern="[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?" required>
+          </label>
+          <label>Friendly name
+            <input name="friendly_name" placeholder="Living Room">
+          </label>
+          <label>Board
+            <select name="board" id="board-select" required></select>
+          </label>
+          <label>Wi-Fi SSID
+            <input name="wifi_ssid" required maxlength="32">
+          </label>
+          <label>Wi-Fi password
+            <input name="wifi_password" type="password" maxlength="64" placeholder="leave empty for open network">
+          </label>
+          <label>Detection algorithm
+            <select name="detection_algorithm">
+              <option value="mvs" selected>mvs (variance-based, default)</option>
+              <option value="ml">ml (neural network, no calibration)</option>
+            </select>
+          </label>
+          <label>Traffic rate (packets/sec)
+            <input name="traffic_generator_rate" type="number" min="0" max="1000" value="100">
+          </label>
+          <label>Detection threshold
+            <input name="segmentation_threshold" value="auto" placeholder="auto, min, or 0.0-10.0">
+          </label>
+          <button type="submit">Add device</button>
+        </form>
+        <p id="device-form-error" class="status status-err" hidden></p>
+      </section>
+
+      <section>
+        <h2>Devices</h2>
+        <div id="device-list" class="device-list"></div>
+      </section>
     </section>
   </main>
 
   <script src="static/app.js"></script>
+  <script src="static/devices.js"></script>
 </body>
 </html>
