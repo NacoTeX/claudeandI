@@ -23,11 +23,11 @@ class HomeAssistantUnavailable(Exception):
 
 
 def _base_url() -> str:
-    return os.environ.get("ESPECTRE_HUB_HA_BASE_URL", DEFAULT_BASE_URL)
+    return os.environ.get("ECHOLOT_HA_BASE_URL", DEFAULT_BASE_URL)
 
 
 def _headers() -> dict:
-    token = os.environ.get("ESPECTRE_HUB_HA_TOKEN") or os.environ.get("SUPERVISOR_TOKEN")
+    token = os.environ.get("ECHOLOT_HA_TOKEN") or os.environ.get("SUPERVISOR_TOKEN")
     if not token:
         raise HomeAssistantUnavailable("No SUPERVISOR_TOKEN available (homeassistant_api not granted?)")
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}

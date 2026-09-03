@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.0
+
+- **Renamed from "ESPectre Hub" to "Echolot".** The old name was both dull
+  and misleading: it read like an official product of the upstream
+  ESPectre project, when this is an independent add-on that merely uses
+  it. "Echolot" names the measuring principle instead — locating something
+  by reading how waves come back disturbed.
+- The add-on slug changed from `espectre_hub` to `echolot`, which
+  Home Assistant treats as a **new add-on**: the old one stays installed
+  until removed by hand, and its `/data` (devices, zones, built firmware)
+  does not carry over.
+- References to ESPectre itself are untouched — it is still the ESPHome
+  component this builds on, and the generated firmware config still pulls
+  `github://francescopace/espectre`.
+
 ## 0.7.0
 
 - The web interface is now in German throughout — labels, buttons, status
@@ -75,7 +90,7 @@
     threshold telemetry at ESPectre's native ~10-50ms notify rate, using
     the GATT protocol documented in ESPectre's own browser game client
     (service `d33ff46b-…`, little-endian float32 telemetry, ASCII control
-    commands) — see `espectre_hub/DOCS.md`.
+    commands) — see `echolot/DOCS.md`.
   - This BLE path is implemented strictly to that documented spec and its
     binary/text parsing is unit-verified, but the live device connection
     itself has not been exercised against real ESPectre hardware — no

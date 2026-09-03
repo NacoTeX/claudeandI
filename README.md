@@ -1,4 +1,4 @@
-# ESPectre Hub
+# Echolot
 
 A self-hosted, license-free alternative to [TOMMY](https://www.tommysense.com) —
 a Wi-Fi CSI (Channel State Information) presence detection system for Home
@@ -22,7 +22,7 @@ out of the box, so you get comparable functionality without a license.
 
 ## Project status
 
-This is being built in phases. See [`espectre_hub/DOCS.md`](espectre_hub/DOCS.md)
+This is being built in phases. See [`echolot/DOCS.md`](echolot/DOCS.md)
 for add-on installation instructions.
 
 - [x] **Phase 1 — Add-on skeleton.** HAOS add-on with a Python (FastAPI)
@@ -51,7 +51,7 @@ for add-on installation instructions.
 ## Installing this add-on repository
 
 In Home Assistant: **Settings → Add-ons → Add-on Store → ⋮ → Repositories**,
-then add this repository's URL. The **ESPectre Hub** add-on will then be
+then add this repository's URL. The **Echolot** add-on will then be
 available to install.
 
 ## License

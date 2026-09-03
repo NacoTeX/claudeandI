@@ -1,12 +1,12 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
-# Start the ESPectre Hub backend
+# Start the Echolot backend
 # ==============================================================================
-bashio::log.info "Starting ESPectre Hub..."
+bashio::log.info "Starting Echolot..."
 
 LOG_LEVEL=$(bashio::config 'log_level' 'info')
 
-cd /opt/espectre-hub || bashio::exit.nok "Could not find app directory"
+cd /opt/echolot || bashio::exit.nok "Could not find app directory"
 
 exec python3 -m uvicorn app.main:app \
     --host 0.0.0.0 \

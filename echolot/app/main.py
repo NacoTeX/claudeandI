@@ -1,4 +1,4 @@
-"""ESPectre Hub backend.
+"""Echolot backend.
 
 Phase 1 established the add-on skeleton (Ingress UI, ESPHome CLI check).
 Phase 2 added device management and browser-based flashing: the backend
@@ -25,11 +25,11 @@ from app import builder, devices, ha_client, zones
 from app.board_registry import BOARDS
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("espectre_hub")
+logger = logging.getLogger("echolot")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI(title="ESPectre Hub")
+app = FastAPI(title="Echolot")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Builds run for minutes in a background task; asyncio only holds a weak
@@ -252,7 +252,7 @@ def api_device_manifest(device_id: str) -> JSONResponse:
     if device.status != devices.BuildStatus.SUCCESS or not device.firmware_bin:
         raise HTTPException(status_code=409, detail="Die Firmware wurde noch nicht gebaut")
     manifest = {
-        "name": f"ESPectre - {device.config.friendly_name or device.config.name}",
+        "name": f"Echolot – {device.config.friendly_name or device.config.name}",
         "version": str(int(device.updated_at)),
         "new_install_prompt_erase": True,
         "builds": [

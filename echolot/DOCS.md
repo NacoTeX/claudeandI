@@ -1,4 +1,4 @@
-# ESPectre Hub
+# Echolot
 
 Self-hosted Wi-Fi CSI presence detection hub, built on
 [ESPectre](https://github.com/francescopace/espectre) — an open-source,
@@ -8,7 +8,7 @@ license-free alternative to [TOMMY](https://www.tommysense.com).
 
 1. Add this repository to the Home Assistant Add-on Store
    (**Settings → Add-ons → Add-on Store → ⋮ → Repositories**).
-2. Find **ESPectre Hub** in the store and click **Install**.
+2. Find **Echolot** in the store and click **Install**.
 3. Start the add-on and open its web UI (Ingress panel in the sidebar).
 
 ## Configuration
