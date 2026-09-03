@@ -13,6 +13,7 @@ these as HA entities already, so no direct device protocol is needed.
 import asyncio
 import logging
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -48,6 +49,17 @@ def _safe_float(value) -> float | None:
     try:
         return float(value)
     except (TypeError, ValueError):
+        return None
+
+
+def _parse_ts(value) -> float | None:
+    """ISO-8601 timestamp -> epoch seconds. HA emits a trailing 'Z' that
+    fromisoformat only learned to accept in 3.11+, so normalise it."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except ValueError:
         return None
 
 
@@ -154,6 +166,35 @@ async def api_device_state(device_id: str) -> dict:
     if device is None:
         raise HTTPException(status_code=404, detail="Device not found")
     return await _read_device_state(device)
+
+
+@app.get("/api/devices/{device_id}/history")
+async def api_device_history(device_id: str, minutes: int = 30) -> dict:
+    """Movement-score history, so the dashboard sparkline starts populated
+    instead of building up from nothing on every page load."""
+    device = devices.get_device(device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if not device.entity_movement_score:
+        return {"available": False, "error": "No movement score entity configured", "points": []}
+
+    minutes = max(1, min(minutes, 1440))
+    try:
+        raw = await ha_client.get_history(device.entity_movement_score, minutes)
+    except ha_client.HomeAssistantUnavailable as err:
+        return {"available": False, "error": str(err), "points": []}
+
+    points = []
+    for entry in raw:
+        value = _safe_float(entry.get("state"))
+        if value is None:  # skips "unavailable" / "unknown"
+            continue
+        stamp = entry.get("last_changed") or entry.get("last_updated")
+        parsed = _parse_ts(stamp)
+        if parsed is None:
+            continue
+        points.append({"t": parsed, "v": value})
+    return {"available": True, "points": points}
 
 
 @app.post("/api/devices/{device_id}/threshold")

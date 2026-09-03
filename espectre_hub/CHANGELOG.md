@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.6.0
+
+- Dashboard rethought around the question it should answer: **is the
+  threshold in the right place, and is the signal steady?** Each device
+  tile now charts its movement score over time with the detection
+  threshold drawn across it, replacing a status dot that showed less
+  than the Devices tab did.
+- Charts open pre-filled from Home Assistant's recorded history via a new
+  `GET /api/devices/{id}/history` endpoint, so the view is useful
+  immediately instead of building up from an empty buffer.
+- One chart, two sources: connecting over BLE re-feeds the same chart at
+  the device's native ~10-50ms rate instead of driving a separate bar,
+  which is what makes the high resolution actually useful.
+- Zone tiles now show which member device is tripping, not just a count.
+- Board type dropped from dashboard tiles (configuration detail, not live
+  state) and the Web Bluetooth notice is a quiet aside rather than a
+  full-width banner.
+- Dashboard polling now only runs while that tab is on screen.
+
 ## 0.5.0
 
 - UI reworked into one consistent design system rather than a glass

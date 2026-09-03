@@ -45,11 +45,11 @@
     </section>
 
     <section id="tab-dashboard" class="tab-panel" hidden>
-      <div class="notice" id="ble-unsupported-notice" hidden>
-        Your browser doesn't support Web Bluetooth (only Chrome, Edge, and
-        Opera do), so the live BLE gauge below is unavailable — tiles still
-        show status polled from Home Assistant every few seconds.
-      </div>
+      <p class="notice notice-quiet" id="ble-unsupported-notice" hidden>
+        Charts update from Home Assistant every few seconds. Connecting a
+        device directly for high-rate telemetry needs Web Bluetooth, which
+        this browser doesn't support — only Chrome, Edge and Opera do.
+      </p>
       <div id="dashboard-grid"></div>
     </section>
 

@@ -74,31 +74,38 @@ cards do.
 
 ### Dashboard
 
-The **Dashboard** tab is a glanceable, at-a-glance view of every device
-and zone as a tile with a status dot (green = motion/occupied, gray =
-clear, amber = unavailable), polled from Home Assistant the same way the
-Devices/Zones tabs are.
+The **Dashboard** tab shows every device and zone as a tile. Each device
+tile plots its **movement score over time with the detection threshold
+drawn across it** — that is the view that tells you whether the threshold
+sits in a sensible place and whether the signal is steady or flickering,
+which a bare on/off indicator cannot.
+
+The chart opens pre-filled from Home Assistant's recorded history (the
+last 30 minutes, if the recorder keeps that entity) and then keeps
+extending live, so it is useful the moment you open the tab rather than
+starting blank. Below it sit the current score and threshold; zone tiles
+highlight *which* member device is currently tripping.
 
 On BLE-capable boards (ESP32, C3, C5, C6, S3 — **not** S2, which ESPectre's
-BLE channel doesn't support), a device's tile also gets a **Connect live
-(BLE)** button. This opens a direct Web Bluetooth connection from your
-browser straight to the device — no add-on backend involved — using the
-same GATT protocol ESPectre's own browser-based "game" client uses
-(`docs/game/README.md` in the [ESPectre repo](https://github.com/francescopace/espectre)):
-a `movement`/`threshold` float pair streamed at roughly the device's
-native ~10-50ms rate, far faster than the ~5s Home Assistant polling.
-This needs:
+BLE channel doesn't support), a device tile also has a **Live** button.
+It opens a direct Web Bluetooth connection from your browser straight to
+the device — no add-on backend involved — using the same GATT protocol
+ESPectre's own browser-based "game" client uses (`docs/game/README.md` in
+the [ESPectre repo](https://github.com/francescopace/espectre)). The same
+chart then redraws from that stream at roughly the device's native
+~10-50ms rate instead of the ~5s polling, which is what makes fine
+threshold tuning practical. This needs:
 
 - **Chrome, Edge, or Opera** — Web Bluetooth isn't implemented in Firefox
   or Safari; the tab shows a notice and falls back to polling there.
 - The page served over **HTTPS or `localhost`**, same Web Serial/Web
   Bluetooth secure-context restriction as flashing (see above).
 - The device powered on and in BLE range: your browser's own device
-  picker opens when you click "Connect live" — its behavior isn't
-  something this add-on controls.
+  picker opens when you click "Live" — its behavior isn't something this
+  add-on controls.
 
-Disconnecting (or navigating away) reverts the tile to the polled status
-dot.
+Disconnecting (or navigating away) puts the chart back on the polled
+feed.
 
 ## Support
 
