@@ -81,7 +81,7 @@ function drawTrace(canvas, id) {
     ctx.fillStyle = grid;
     ctx.globalAlpha = 0.65;
     ctx.font = "11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-    ctx.fillText("waiting for data…", 4, h / 2 + 4);
+    ctx.fillText("warte auf Daten…", 4, h / 2 + 4);
     ctx.globalAlpha = 1;
     return;
   }
@@ -165,7 +165,7 @@ function renderDeviceTile(device, boardsByKey, zoneNamesByDevice) {
           <span class="tile-dot"></span>
           <h3>${escapeHtml(c.friendly_name || c.name)}</h3>
         </div>
-        <p class="tile-sub">not built yet — build it on the Devices tab</p>
+        <p class="tile-sub">noch nicht gebaut — im Tab „Geräte“ bauen</p>
       </div>`;
   }
 
@@ -179,8 +179,8 @@ function renderDeviceTile(device, boardsByKey, zoneNamesByDevice) {
       ${zoneNames.length ? `<p class="tile-sub">${zoneNames.map(escapeHtml).join(", ")}</p>` : ""}
       <canvas class="trace" data-trace="${device.id}" height="56"></canvas>
       <div class="tile-readout">
-        <span class="readout-item"><b data-score>—</b> score</span>
-        <span class="readout-item readout-threshold"><b data-threshold>—</b> threshold</span>
+        <span class="readout-item"><b data-score>—</b> Wert</span>
+        <span class="readout-item readout-threshold"><b data-threshold>—</b> Schwelle</span>
         ${bleCapable ? '<button type="button" class="ble-connect-btn">Live</button>' : ""}
       </div>
       <p class="tile-note" data-note hidden></p>
@@ -213,7 +213,7 @@ async function loadDashboard() {
       fetch("api/boards").then((r) => r.json()),
     ]);
   } catch (err) {
-    grid.innerHTML = '<p class="status status-err">Failed to load dashboard data</p>';
+    grid.innerHTML = '<p class="status status-err">Dashboard-Daten konnten nicht geladen werden</p>';
     return;
   }
 
@@ -225,18 +225,18 @@ async function loadDashboard() {
 
   const sections = [];
   if (deviceList.length) {
-    sections.push(`<section class="dash-section"><h2 class="dash-heading">Devices</h2>
+    sections.push(`<section class="dash-section"><h2 class="dash-heading">Geräte</h2>
       <div class="dashboard-grid">${deviceList.map((d) => renderDeviceTile(d, boardsByKey, zoneNamesByDevice)).join("")}</div>
     </section>`);
   }
   if (zoneList.length) {
-    sections.push(`<section class="dash-section"><h2 class="dash-heading">Zones</h2>
+    sections.push(`<section class="dash-section"><h2 class="dash-heading">Zonen</h2>
       <div class="dashboard-grid">${zoneList.map(renderZoneTile).join("")}</div>
     </section>`);
   }
   grid.innerHTML = sections.length
     ? sections.join("")
-    : '<p class="status status-pending">Add devices and zones on the other tabs first.</p>';
+    : '<p class="status status-pending">Lege zuerst Geräte und Zonen in den anderen Tabs an.</p>';
 
   for (const el of grid.querySelectorAll("[data-dash-id]")) {
     const btn = el.querySelector(".ble-connect-btn");
@@ -279,12 +279,12 @@ async function refreshDevice(id, tileEl) {
   try {
     state = await (await fetch(`api/devices/${id}/state`)).json();
   } catch (err) {
-    state = { available: false, error: "Backend unreachable" };
+    state = { available: false, error: "Backend nicht erreichbar" };
   }
 
   if (!state.available) {
     dot.className = "tile-dot tile-dot-unknown";
-    stateEl.textContent = "unavailable";
+    stateEl.textContent = "nicht verfügbar";
     stateEl.className = "tile-state status-warn";
     noteEl.textContent = state.error || "";
     noteEl.hidden = !state.error;
@@ -298,10 +298,10 @@ async function refreshDevice(id, tileEl) {
 
   dot.className = `tile-dot ${state.motion ? "tile-dot-on" : "tile-dot-off"}`;
   stateEl.textContent = state.motion
-    ? "motion"
+    ? "Bewegung"
     : t.lastMotion
-      ? `clear · ${relativeTime(Date.now() - t.lastMotion)}`
-      : "clear";
+      ? `frei · seit ${relativeTime(Date.now() - t.lastMotion)}`
+      : "frei";
   stateEl.className = `tile-state ${state.motion ? "status-ok" : "status-pending"}`;
   scoreEl.textContent = state.movement_score != null ? state.movement_score.toFixed(2) : "—";
   thresholdEl.textContent = state.threshold != null ? state.threshold.toFixed(2) : "—";
@@ -316,18 +316,18 @@ async function refreshZone(id, tileEl) {
     state = await (await fetch(`api/zones/${id}/state`)).json();
   } catch (err) {
     dot.className = "tile-dot tile-dot-unknown";
-    stateEl.textContent = "unreachable";
+    stateEl.textContent = "nicht erreichbar";
     stateEl.className = "tile-state status-err";
     return;
   }
 
   if (!state.available) {
     dot.className = "tile-dot tile-dot-unknown";
-    stateEl.textContent = "unavailable";
+    stateEl.textContent = "nicht verfügbar";
     stateEl.className = "tile-state status-warn";
   } else {
     dot.className = `tile-dot ${state.occupied ? "tile-dot-on" : "tile-dot-off"}`;
-    stateEl.textContent = state.occupied ? "occupied" : "clear";
+    stateEl.textContent = state.occupied ? "belegt" : "frei";
     stateEl.className = `tile-state ${state.occupied ? "status-ok" : "status-pending"}`;
   }
 
@@ -337,7 +337,7 @@ async function refreshZone(id, tileEl) {
     if (!chip) continue;
     chip.textContent = member.name || member.device_id.slice(0, 8);
     chip.className = `chip ${member.available ? (member.motion ? "chip-on" : "") : "chip-unknown"}`;
-    chip.title = member.available ? "" : member.error || "unavailable";
+    chip.title = member.available ? "" : member.error || "nicht verfügbar";
   }
 }
 
@@ -377,7 +377,7 @@ async function toggleBleConnection(id, tileEl) {
   noteEl.hidden = true;
 
   if (!navigator.bluetooth) {
-    noteEl.textContent = "Web Bluetooth isn't supported in this browser.";
+    noteEl.textContent = "Dieser Browser unterstützt kein Web Bluetooth.";
     noteEl.hidden = false;
     return;
   }
@@ -407,7 +407,7 @@ async function toggleBleConnection(id, tileEl) {
       if (hot) t.lastMotion = Date.now();
       tileEl.querySelector("[data-dot]").className = `tile-dot ${hot ? "tile-dot-on" : "tile-dot-off"}`;
       const stateEl = tileEl.querySelector("[data-state]");
-      stateEl.textContent = hot ? "motion" : "clear";
+      stateEl.textContent = hot ? "Bewegung" : "frei";
       stateEl.className = `tile-state ${hot ? "status-ok" : "status-pending"}`;
       tileEl.querySelector("[data-score]").textContent = movement.toFixed(2);
       tileEl.querySelector("[data-threshold]").textContent = threshold.toFixed(2);
@@ -437,11 +437,11 @@ async function toggleBleConnection(id, tileEl) {
 
     tileEl.classList.add("tile-live");
     btn.disabled = false;
-    btn.textContent = "Stop";
+    btn.textContent = "Stopp";
   } catch (err) {
     bleConnections.delete(id);
     trace(id).live = false;
-    noteEl.textContent = err.message || "BLE connection failed";
+    noteEl.textContent = err.message || "BLE-Verbindung fehlgeschlagen";
     noteEl.hidden = false;
     btn.disabled = false;
     btn.textContent = "Live";

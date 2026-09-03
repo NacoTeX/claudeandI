@@ -65,7 +65,7 @@ def _parse_ts(value) -> float | None:
 
 async def _read_device_state(device: devices.Device) -> dict:
     if not device.entity_motion:
-        return {"available": False, "error": "No motion entity configured for this device"}
+        return {"available": False, "error": "Für dieses Gerät ist keine Bewegungs-Entity konfiguriert"}
     try:
         motion = await ha_client.get_state(device.entity_motion)
         score = await ha_client.get_state(device.entity_movement_score) if device.entity_movement_score else None
@@ -73,7 +73,7 @@ async def _read_device_state(device: devices.Device) -> dict:
     except ha_client.HomeAssistantUnavailable as err:
         return {"available": False, "error": str(err)}
     if motion is None:
-        return {"available": False, "error": f"Entity {device.entity_motion} not found in Home Assistant"}
+        return {"available": False, "error": f"Entity {device.entity_motion} in Home Assistant nicht gefunden"}
     return {
         "available": True,
         "motion": motion["state"] == "on",
@@ -136,7 +136,7 @@ def api_create_device(payload: dict) -> dict:
 def api_get_device(device_id: str) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     return device.public()
 
 
@@ -144,7 +144,7 @@ def api_get_device(device_id: str) -> dict:
 def api_update_device(device_id: str, payload: dict) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     try:
         patch = devices.DeviceUpdate.model_validate(payload)
     except ValidationError as err:
@@ -157,14 +157,14 @@ def api_update_device(device_id: str, payload: dict) -> dict:
 @app.delete("/api/devices/{device_id}", status_code=204)
 def api_delete_device(device_id: str) -> None:
     if not devices.delete_device(device_id):
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
 
 
 @app.get("/api/devices/{device_id}/state")
 async def api_device_state(device_id: str) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     return await _read_device_state(device)
 
 
@@ -174,9 +174,9 @@ async def api_device_history(device_id: str, minutes: int = 30) -> dict:
     instead of building up from nothing on every page load."""
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     if not device.entity_movement_score:
-        return {"available": False, "error": "No movement score entity configured", "points": []}
+        return {"available": False, "error": "Keine Bewegungswert-Entity konfiguriert", "points": []}
 
     minutes = max(1, min(minutes, 1440))
     try:
@@ -201,16 +201,16 @@ async def api_device_history(device_id: str, minutes: int = 30) -> dict:
 async def api_set_threshold(device_id: str, payload: dict) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     if not device.entity_threshold:
-        raise HTTPException(status_code=409, detail="No threshold entity configured for this device")
+        raise HTTPException(status_code=409, detail="Für dieses Gerät ist keine Schwellen-Entity konfiguriert")
     value = _safe_float(payload.get("value"))
     if value is None or not (0.0 <= value <= 10.0):
-        raise HTTPException(status_code=422, detail='Body must be {"value": <number 0.0-10.0>}')
+        raise HTTPException(status_code=422, detail='Erwartet wird {"value": <Zahl 0.0-10.0>}')
     try:
         await ha_client.call_service("number", "set_value", device.entity_threshold, value=value)
     except ha_client.HomeAssistantUnavailable as err:
-        raise HTTPException(status_code=502, detail=f"Home Assistant unreachable: {err}") from err
+        raise HTTPException(status_code=502, detail=f"Home Assistant nicht erreichbar: {err}") from err
     return {"status": "ok"}
 
 
@@ -218,13 +218,13 @@ async def api_set_threshold(device_id: str, payload: dict) -> dict:
 async def api_calibrate_device(device_id: str) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     if not device.entity_calibrate:
-        raise HTTPException(status_code=409, detail="No calibrate entity configured for this device")
+        raise HTTPException(status_code=409, detail="Für dieses Gerät ist keine Kalibrierungs-Entity konfiguriert")
     try:
         await ha_client.call_service("switch", "turn_on", device.entity_calibrate)
     except ha_client.HomeAssistantUnavailable as err:
-        raise HTTPException(status_code=502, detail=f"Home Assistant unreachable: {err}") from err
+        raise HTTPException(status_code=502, detail=f"Home Assistant nicht erreichbar: {err}") from err
     return {"status": "ok"}
 
 
@@ -232,9 +232,9 @@ async def api_calibrate_device(device_id: str) -> dict:
 async def api_build_device(device_id: str) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     if not builder.try_start_build(device_id):
-        raise HTTPException(status_code=409, detail="A build is already running for this device")
+        raise HTTPException(status_code=409, detail="Für dieses Gerät läuft bereits ein Build")
 
     device.status = devices.BuildStatus.QUEUED
     devices.save_device(device)
@@ -248,9 +248,9 @@ async def api_build_device(device_id: str) -> dict:
 def api_device_manifest(device_id: str) -> JSONResponse:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     if device.status != devices.BuildStatus.SUCCESS or not device.firmware_bin:
-        raise HTTPException(status_code=409, detail="Firmware has not been built yet")
+        raise HTTPException(status_code=409, detail="Die Firmware wurde noch nicht gebaut")
     manifest = {
         "name": f"ESPectre - {device.config.friendly_name or device.config.name}",
         "version": str(int(device.updated_at)),
@@ -269,12 +269,12 @@ def api_device_manifest(device_id: str) -> JSONResponse:
 def api_device_firmware(device_id: str) -> FileResponse:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     if device.status != devices.BuildStatus.SUCCESS or not device.firmware_bin:
-        raise HTTPException(status_code=409, detail="Firmware has not been built yet")
+        raise HTTPException(status_code=409, detail="Die Firmware wurde noch nicht gebaut")
     path = devices.device_dir(device_id) / device.firmware_bin
     if not path.exists():
-        raise HTTPException(status_code=404, detail="Firmware file missing on disk")
+        raise HTTPException(status_code=404, detail="Firmware-Datei fehlt auf der Festplatte")
     return FileResponse(path, media_type="application/octet-stream", filename="firmware.bin")
 
 
@@ -291,7 +291,7 @@ def api_create_zone(payload: dict) -> dict:
         raise HTTPException(status_code=422, detail=_validation_detail(err)) from err
     unknown = [d for d in config.device_ids if devices.get_device(d) is None]
     if unknown:
-        raise HTTPException(status_code=422, detail=f"Unknown device id(s): {', '.join(unknown)}")
+        raise HTTPException(status_code=422, detail=f"Unbekannte Geräte-ID(s): {', '.join(unknown)}")
     zone = zones.create_zone(config)
     return zone.model_dump()
 
@@ -300,7 +300,7 @@ def api_create_zone(payload: dict) -> dict:
 def api_get_zone(zone_id: str) -> dict:
     zone = zones.get_zone(zone_id)
     if zone is None:
-        raise HTTPException(status_code=404, detail="Zone not found")
+        raise HTTPException(status_code=404, detail="Zone nicht gefunden")
     return zone.model_dump()
 
 
@@ -308,7 +308,7 @@ def api_get_zone(zone_id: str) -> dict:
 def api_update_zone(zone_id: str, payload: dict) -> dict:
     zone = zones.get_zone(zone_id)
     if zone is None:
-        raise HTTPException(status_code=404, detail="Zone not found")
+        raise HTTPException(status_code=404, detail="Zone nicht gefunden")
     try:
         patch = zones.ZoneUpdate.model_validate(payload)
     except ValidationError as err:
@@ -316,7 +316,7 @@ def api_update_zone(zone_id: str, payload: dict) -> dict:
     if patch.device_ids is not None:
         unknown = [d for d in patch.device_ids if devices.get_device(d) is None]
         if unknown:
-            raise HTTPException(status_code=422, detail=f"Unknown device id(s): {', '.join(unknown)}")
+            raise HTTPException(status_code=422, detail=f"Unbekannte Geräte-ID(s): {', '.join(unknown)}")
     zone.apply_update(patch)
     zones.save_zone(zone)
     return zone.model_dump()
@@ -325,14 +325,14 @@ def api_update_zone(zone_id: str, payload: dict) -> dict:
 @app.delete("/api/zones/{zone_id}", status_code=204)
 def api_delete_zone(zone_id: str) -> None:
     if not zones.delete_zone(zone_id):
-        raise HTTPException(status_code=404, detail="Zone not found")
+        raise HTTPException(status_code=404, detail="Zone nicht gefunden")
 
 
 @app.get("/api/zones/{zone_id}/state")
 async def api_zone_state(zone_id: str) -> dict:
     zone = zones.get_zone(zone_id)
     if zone is None:
-        raise HTTPException(status_code=404, detail="Zone not found")
+        raise HTTPException(status_code=404, detail="Zone nicht gefunden")
 
     members = []
     occupied = False

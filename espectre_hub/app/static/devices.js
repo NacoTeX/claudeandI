@@ -1,7 +1,7 @@
-// Device management + browser flashing (Phase 2).
+// Geräteverwaltung + Flashen über den Browser (Phase 2).
 //
-// All API paths below are relative (no leading slash) so they stay under
-// the Home Assistant Ingress token prefix — see app.js for why.
+// Alle API-Pfade sind relativ (ohne führenden Slash), damit sie unter dem
+// Ingress-Präfix bleiben — Begründung in app.js.
 
 const POLL_INTERVAL_MS = 2000;
 const activePolls = new Set();
@@ -20,12 +20,12 @@ async function loadBoards() {
       .map((b) => `<option value="${escapeHtml(b.key)}">${escapeHtml(b.label)}${b.experimental ? " ⚠" : ""}</option>`)
       .join("");
   } catch (err) {
-    select.innerHTML = '<option value="">Failed to load boards</option>';
+    select.innerHTML = '<option value="">Boards konnten nicht geladen werden</option>';
   }
 }
 
 function statusLabel(status) {
-  return { idle: "not built", queued: "queued…", running: "building…", success: "ready to flash", error: "build failed" }[status] || status;
+  return { idle: "nicht gebaut", queued: "in Warteschlange…", running: "wird gebaut…", success: "bereit zum Flashen", error: "Build fehlgeschlagen" }[status] || status;
 }
 
 function statusClass(status) {
@@ -33,7 +33,7 @@ function statusClass(status) {
 }
 
 const ENTITY_FIELDS = ["entity_motion", "entity_movement_score", "entity_threshold", "entity_calibrate"];
-const ENTITY_LABELS = { entity_motion: "Motion", entity_movement_score: "Score", entity_threshold: "Threshold", entity_calibrate: "Calibrate" };
+const ENTITY_LABELS = { entity_motion: "Bewegung", entity_movement_score: "Bewegungswert", entity_threshold: "Schwelle", entity_calibrate: "Kalibrierung" };
 
 function renderDevice(device) {
   const c = device.config;
@@ -42,7 +42,7 @@ function renderDevice(device) {
   const built = device.status === "success";
 
   const logBlock = device.build_log
-    ? `<details><summary>Build log</summary><pre class="build-log">${escapeHtml(device.build_log.slice(-4000))}</pre></details>`
+    ? `<details><summary>Build-Protokoll</summary><pre class="build-log">${escapeHtml(device.build_log.slice(-4000))}</pre></details>`
     : "";
   const errorLine = device.build_error
     ? `<p class="status status-err">${escapeHtml(device.build_error)}</p>`
@@ -50,32 +50,32 @@ function renderDevice(device) {
 
   const flashBlock = built
     ? `<esp-web-install-button manifest="api/devices/${device.id}/manifest.json">
-         <button slot="activate">Flash over USB</button>
-         <span slot="unsupported">Your browser doesn't support Web Serial (use Chrome or Edge).</span>
-         <span slot="not-allowed">Web Serial needs HTTPS or localhost — see the notice above.</span>
+         <button slot="activate">Über USB flashen</button>
+         <span slot="unsupported">Dieser Browser unterstützt kein Web Serial (nutze Chrome oder Edge).</span>
+         <span slot="not-allowed">Web Serial benötigt HTTPS oder localhost — siehe Hinweis oben.</span>
        </esp-web-install-button>`
     : "";
 
   const liveBlock = built
     ? `<div class="live-block" data-live-id="${device.id}">
-         <div class="live-row"><span class="live-label">Motion</span><span class="live-motion status status-pending">checking…</span></div>
-         <div class="live-row"><span class="live-label">Movement score</span><span class="live-score">—</span></div>
+         <div class="live-row"><span class="live-label">Bewegung</span><span class="live-motion status status-pending">wird geprüft…</span></div>
+         <div class="live-row"><span class="live-label">Bewegungswert</span><span class="live-score">—</span></div>
          <form class="threshold-form">
-           <label>Threshold
+           <label>Schwelle
              <input class="threshold-input" type="number" min="0" max="10" step="0.1" placeholder="0.0–10.0">
            </label>
-           <button type="submit">Push</button>
+           <button type="submit">Senden</button>
          </form>
-         <button type="button" class="calibrate-btn">Recalibrate</button>
+         <button type="button" class="calibrate-btn">Neu kalibrieren</button>
          <p class="live-error status status-err" hidden></p>
        </div>
        <details class="entity-editor">
-         <summary>HA entity ids</summary>
+         <summary>HA-Entity-IDs</summary>
          ${ENTITY_FIELDS.map((f) => `
            <label>${ENTITY_LABELS[f]}
              <input class="entity-input" data-field="${f}" value="${escapeHtml(device[f] || "")}">
            </label>`).join("")}
-         <button type="button" class="save-entities-btn">Save entity ids</button>
+         <button type="button" class="save-entities-btn">Entity-IDs speichern</button>
        </details>`
     : "";
 
@@ -88,9 +88,9 @@ function renderDevice(device) {
       <p class="device-meta">${escapeHtml(c.name)} · ${escapeHtml(c.board)} · ${escapeHtml(c.detection_algorithm)}</p>
       ${errorLine}
       <div class="device-actions">
-        <button class="build-btn${built ? " btn-secondary" : ""}" ${canBuild ? "" : "disabled"}>${built ? "Rebuild" : "Build firmware"}</button>
+        <button class="build-btn${built ? " btn-secondary" : ""}" ${canBuild ? "" : "disabled"}>${built ? "Neu bauen" : "Firmware bauen"}</button>
         ${flashBlock}
-        <button class="delete-btn">Delete</button>
+        <button class="delete-btn">Löschen</button>
       </div>
       ${liveBlock}
       ${logBlock}
@@ -103,13 +103,13 @@ async function loadDevices() {
   try {
     devices = await (await fetch("api/devices")).json();
   } catch (err) {
-    list.innerHTML = '<p class="status status-err">Failed to load devices</p>';
+    list.innerHTML = '<p class="status status-err">Geräte konnten nicht geladen werden</p>';
     return;
   }
 
   list.innerHTML = devices.length
     ? devices.map(renderDevice).join("")
-    : '<p class="status status-pending">No devices yet — add one above.</p>';
+    : '<p class="status status-pending">Noch keine Geräte — lege oben eines an.</p>';
 
   for (const el of list.querySelectorAll(".device-card")) {
     const id = el.dataset.id;
@@ -144,22 +144,22 @@ async function refreshLiveState(id) {
   try {
     state = await (await fetch(`api/devices/${id}/state`)).json();
   } catch (err) {
-    state = { available: false, error: "Failed to reach the backend" };
+    state = { available: false, error: "Backend nicht erreichbar" };
   }
 
   if (!state.available) {
-    motionEl.textContent = "unavailable";
+    motionEl.textContent = "nicht verfügbar";
     motionEl.className = "live-motion status status-warn";
     scoreEl.textContent = "—";
-    errorEl.textContent = state.error || "Unavailable";
+    errorEl.textContent = state.error || "Nicht verfügbar";
     errorEl.hidden = false;
     return;
   }
 
   errorEl.hidden = true;
-  motionEl.textContent = state.motion ? "detected" : "clear";
+  motionEl.textContent = state.motion ? "erkannt" : "frei";
   motionEl.className = `live-motion status ${state.motion ? "status-ok" : "status-pending"}`;
-  scoreEl.textContent = state.movement_score ?? "—";
+  scoreEl.textContent = state.movement_score != null ? state.movement_score.toFixed(2) : "—";
   if (state.threshold != null && document.activeElement !== thresholdInput) {
     thresholdInput.value = state.threshold;
   }
@@ -185,13 +185,13 @@ async function pushThreshold(evt, id) {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      errorEl.textContent = body.detail || "Failed to push threshold";
+      errorEl.textContent = body.detail || "Schwelle konnte nicht gesendet werden";
       errorEl.hidden = false;
       return;
     }
     errorEl.hidden = true;
   } catch (err) {
-    errorEl.textContent = "Failed to reach the backend";
+    errorEl.textContent = "Backend nicht erreichbar";
     errorEl.hidden = false;
   }
 }
@@ -200,18 +200,18 @@ async function calibrateDevice(id, button) {
   const errorEl = button.closest(".live-block").querySelector(".live-error");
   const original = button.textContent;
   button.disabled = true;
-  button.textContent = "Calibrating…";
+  button.textContent = "Kalibriert…";
   try {
     const res = await fetch(`api/devices/${id}/calibrate`, { method: "POST" });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      errorEl.textContent = body.detail || "Failed to trigger calibration";
+      errorEl.textContent = body.detail || "Kalibrierung konnte nicht ausgelöst werden";
       errorEl.hidden = false;
     } else {
       errorEl.hidden = true;
     }
   } catch (err) {
-    errorEl.textContent = "Failed to reach the backend";
+    errorEl.textContent = "Backend nicht erreichbar";
     errorEl.hidden = false;
   } finally {
     button.disabled = false;
@@ -242,18 +242,18 @@ async function startBuild(id) {
     const res = await fetch(`api/devices/${id}/build`, { method: "POST" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data.detail || "Failed to start build");
+      alert(data.detail || "Build konnte nicht gestartet werden");
       return;
     }
   } catch (err) {
-    alert("Failed to reach the backend");
+    alert("Backend nicht erreichbar");
     return;
   }
   await loadDevices();
 }
 
 async function deleteDevice(id) {
-  if (!confirm("Delete this device?")) return;
+  if (!confirm("Dieses Gerät löschen?")) return;
   await fetch(`api/devices/${id}`, { method: "DELETE" });
   await loadDevices();
 }
@@ -300,7 +300,7 @@ document.getElementById("device-form").addEventListener("submit", async (evt) =>
       const body = await res.json().catch(() => ({}));
       const detail = Array.isArray(body.detail)
         ? body.detail.map((e) => e.msg).join("; ")
-        : body.detail || "Failed to add device";
+        : body.detail || "Gerät konnte nicht angelegt werden";
       errorEl.textContent = detail;
       errorEl.hidden = false;
       return;
@@ -308,7 +308,7 @@ document.getElementById("device-form").addEventListener("submit", async (evt) =>
     form.reset();
     await loadDevices();
   } catch (err) {
-    errorEl.textContent = "Failed to reach the backend";
+    errorEl.textContent = "Backend nicht erreichbar";
     errorEl.hidden = false;
   }
 });

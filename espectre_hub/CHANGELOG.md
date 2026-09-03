@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.0
+
+- The web interface is now in German throughout — labels, buttons, status
+  text, validation messages and the error details the backend returns to
+  the UI. Code comments, commit messages and this changelog stay in
+  English, as does the project documentation, since the repository is
+  public.
+- Added the add-on `icon.png` and `logo.png` that were missing, so the
+  Supervisor store no longer shows a placeholder, plus a matching favicon
+  for the web interface.
+- The Overview tab gained an inventory card (how many devices, how many
+  built, how many zones) instead of only reporting service health.
+- Movement scores now render with the same precision everywhere.
+
 ## 0.6.0
 
 - Dashboard rethought around the question it should answer: **is the
