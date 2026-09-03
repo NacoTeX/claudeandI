@@ -88,10 +88,10 @@ function renderDevice(device) {
       <p class="device-meta">${escapeHtml(c.name)} · ${escapeHtml(c.board)} · ${escapeHtml(c.detection_algorithm)}</p>
       ${errorLine}
       <div class="device-actions">
-        <button class="build-btn" ${canBuild ? "" : "disabled"}>${built ? "Rebuild" : "Build firmware"}</button>
+        <button class="build-btn${built ? " btn-secondary" : ""}" ${canBuild ? "" : "disabled"}>${built ? "Rebuild" : "Build firmware"}</button>
+        ${flashBlock}
         <button class="delete-btn">Delete</button>
       </div>
-      ${flashBlock}
       ${liveBlock}
       ${logBlock}
     </div>`;

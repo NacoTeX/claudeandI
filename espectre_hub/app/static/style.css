@@ -1,14 +1,80 @@
+/* ESPectre Hub — design system.
+   Frosted-glass surfaces floating over an atmospheric backdrop. The blur
+   only reads as glass if there is something behind it to blur, hence the
+   coloured gradient field on <body> rather than a flat fill. */
+
 :root {
-  color-scheme: light dark;
-  --bg: #0f1115;
-  --panel: #1a1d24;
-  --border: #2a2e38;
-  --text: #e7e9ee;
-  --muted: #9aa0ac;
-  --accent: #5eead4;
-  --ok: #4ade80;
-  --warn: #fbbf24;
-  --err: #f87171;
+  color-scheme: light;
+
+  /* Neutrals & text */
+  --bg-base: #eef1f7;
+  --text: #1b1f27;
+  --muted: #626a7a;
+  --faint: #8b93a3;
+
+  /* Glass surfaces: two elevations + an inset well for inputs/logs */
+  --glass: rgba(255, 255, 255, 0.62);
+  --glass-raised: rgba(255, 255, 255, 0.78);
+  --glass-well: rgba(255, 255, 255, 0.55);
+  --hairline: rgba(20, 25, 35, 0.1);
+  --hairline-strong: rgba(20, 25, 35, 0.16);
+  --sheen: rgba(255, 255, 255, 0.7);
+  --shadow: 0 10px 34px rgba(20, 26, 44, 0.1);
+  --shadow-raised: 0 16px 44px rgba(20, 26, 44, 0.14);
+
+  /* Accents */
+  --accent: #0d9488;
+  --accent-soft: rgba(13, 148, 136, 0.14);
+  --accent-line: rgba(13, 148, 136, 0.36);
+  --on-accent: #ffffff;
+  --ok: #15803d;
+  --warn: #b45309;
+  --err: #be123c;
+
+  /* Atmosphere behind the glass */
+  --wash-1: rgba(94, 234, 212, 0.5);
+  --wash-2: rgba(129, 172, 255, 0.42);
+  --wash-3: rgba(196, 181, 253, 0.34);
+
+  /* Shape & motion */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 26px;
+  --r-pill: 999px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --bg-base: #0a0d14;
+    --text: #eef1f7;
+    --muted: #a2abbd;
+    --faint: #77808f;
+
+    --glass: rgba(30, 36, 50, 0.55);
+    --glass-raised: rgba(38, 45, 62, 0.68);
+    --glass-well: rgba(10, 13, 20, 0.45);
+    --hairline: rgba(255, 255, 255, 0.1);
+    --hairline-strong: rgba(255, 255, 255, 0.18);
+    --sheen: rgba(255, 255, 255, 0.14);
+    --shadow: 0 12px 38px rgba(0, 0, 0, 0.42);
+    --shadow-raised: 0 20px 52px rgba(0, 0, 0, 0.5);
+
+    --accent: #5eead4;
+    --accent-soft: rgba(94, 234, 212, 0.16);
+    --accent-line: rgba(94, 234, 212, 0.4);
+    --on-accent: #04241f;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --err: #fb7185;
+
+    --wash-1: rgba(20, 184, 166, 0.34);
+    --wash-2: rgba(59, 105, 246, 0.3);
+    --wash-3: rgba(139, 92, 246, 0.26);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -16,149 +82,265 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-base);
+  /* Fixed so the glass has a stable field to refract while content scrolls. */
+  background-image:
+    radial-gradient(58vw 46vw at 12% -8%, var(--wash-1), transparent 62%),
+    radial-gradient(52vw 44vw at 92% 4%, var(--wash-2), transparent 60%),
+    radial-gradient(64vw 52vw at 50% 108%, var(--wash-3), transparent 64%);
+  background-attachment: fixed;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 main {
-  max-width: 760px;
+  max-width: 880px;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem 4rem;
+  padding: 2.75rem 1.5rem 4.5rem;
 }
+
+/* ---------- Header & tabs ---------- */
 
 header h1 {
   margin: 0;
-  font-size: 2rem;
-  letter-spacing: -0.02em;
+  font-size: 2.1rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
 }
 
 .subtitle {
-  margin: 0.25rem 0 2rem;
+  margin: 0.3rem 0 1.75rem;
   color: var(--muted);
+}
+
+/* visionOS-style segmented control rather than an underline rail. */
+.tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin: 0 0 2rem;
+  padding: 0.3rem;
+  background: var(--glass);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow), inset 0 1px 0 var(--sheen);
+}
+
+.tab-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 550;
+  padding: 0.45rem 1.05rem;
+  cursor: pointer;
+  transition: background 0.22s var(--ease), color 0.22s var(--ease);
+}
+
+.tab-btn:hover { color: var(--text); }
+
+.tab-btn.active {
+  background: var(--glass-raised);
+  color: var(--text);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1), inset 0 1px 0 var(--sheen);
+}
+
+/* ---------- Surfaces ---------- */
+
+.card,
+.glass-tile,
+.notice {
+  background: var(--glass);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow), inset 0 1px 0 var(--sheen);
+}
+
+.card {
+  border-radius: var(--r-xl);
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.card h2 {
+  margin: 0 0 0.55rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 650;
+  color: var(--faint);
 }
 
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
 }
 
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 1.25rem 1.5rem;
-}
-
-.card h2 {
-  margin: 0 0 0.5rem;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-}
-
-.status {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.status-pending { color: var(--muted); }
-.status-ok { color: var(--ok); }
-.status-warn { color: var(--warn); }
-.status-err { color: var(--err); }
-
-.roadmap h2 {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-}
-
-.roadmap ol {
-  padding-left: 1.25rem;
-  color: var(--muted);
-}
-
-.roadmap li.done {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin: 1.5rem 0 2rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.tab-btn {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 0.95rem;
-  padding: 0.6rem 0.2rem;
-  margin-right: 1.25rem;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-}
-
-.tab-btn.active {
-  color: var(--text);
-  border-bottom-color: var(--accent);
-}
+.cards .card { margin-bottom: 0; }
 
 .notice {
-  background: var(--panel);
-  border: 1px solid var(--warn);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
+  border-color: var(--accent-line);
   padding: 1rem 1.25rem;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   margin-bottom: 1.5rem;
 }
 
 .notice code {
   color: var(--text);
+  background: var(--glass-well);
+  border-radius: 5px;
+  padding: 0.05em 0.35em;
+  font-size: 0.92em;
 }
+
+/* ---------- Text & status ---------- */
+
+h2 {
+  font-size: 1.15rem;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+
+.status {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 620;
+}
+
+.status-pending { color: var(--faint); }
+.status-ok { color: var(--ok); }
+.status-warn { color: var(--warn); }
+.status-err { color: var(--err); }
+
+.hint {
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin: -0.25rem 0 1.1rem;
+  max-width: 62ch;
+}
+
+.roadmap h2 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+}
+
+.roadmap ol {
+  padding-left: 1.2rem;
+  color: var(--muted);
+}
+
+/* Done phases recede; what's still open is what you want to see. */
+.roadmap li {
+  margin: 0.2rem 0;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.roadmap li.done {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* ---------- Forms ---------- */
 
 .device-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.device-form label,
+.threshold-form label,
+.entity-editor label {
+  font-size: 0.78rem;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  color: var(--faint);
 }
 
 .device-form label {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-  color: var(--muted);
+  gap: 0.4rem;
 }
 
-.device-form input,
-.device-form select {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+input,
+select {
+  font: inherit;
   color: var(--text);
-  padding: 0.5rem 0.6rem;
-  font-size: 0.95rem;
+  background: var(--glass-well);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-sm);
+  padding: 0.5rem 0.65rem;
+  transition: border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
 
-.device-form button,
-.device-actions button {
-  background: var(--accent);
-  border: none;
-  border-radius: 8px;
-  color: #06231d;
-  font-weight: 600;
-  padding: 0.55rem 1rem;
+input:hover,
+select:hover { border-color: var(--faint); }
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Keyboard focus for controls that have no border of their own. */
+button:focus-visible,
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+}
+
+/* ---------- Buttons ---------- */
+
+button {
+  font: inherit;
   cursor: pointer;
+  transition: transform 0.12s var(--ease), background 0.2s var(--ease),
+    border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+button:active:not(:disabled) { transform: scale(0.975); }
+
+/* Primary: filled accent */
+.device-form button,
+.device-actions .build-btn,
+esp-web-install-button button[slot="activate"] {
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--on-accent);
+  font-weight: 620;
+  padding: 0.55rem 1.1rem;
+  box-shadow: 0 4px 14px var(--accent-soft);
+}
+
+.device-form button:hover,
+.device-actions .build-btn:hover:not(:disabled),
+esp-web-install-button button[slot="activate"]:hover {
+  box-shadow: 0 6px 20px var(--accent-line);
 }
 
 .device-form button {
@@ -166,22 +348,64 @@ header h1 {
   justify-self: start;
 }
 
-.device-actions button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+/* Once a device is built, flashing is the primary action and rebuilding
+   steps down to secondary, so the two don't compete. */
+.device-actions .build-btn.btn-secondary {
+  background: var(--glass-well);
+  border: 1px solid var(--hairline-strong);
+  color: var(--text);
+  box-shadow: none;
 }
 
-.device-actions .delete-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
+.device-actions .build-btn.btn-secondary:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: none;
 }
+
+/* Secondary: glass outline */
+.device-actions .delete-btn,
+.delete-zone-btn,
+.threshold-form button,
+.calibrate-btn,
+.save-entities-btn {
+  background: var(--glass-well);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-weight: 550;
+  padding: 0.48rem 0.9rem;
+}
+
+.device-actions .delete-btn,
+.delete-zone-btn { color: var(--muted); }
+
+.device-actions .delete-btn:hover,
+.delete-zone-btn:hover {
+  border-color: var(--err);
+  color: var(--err);
+}
+
+.threshold-form button:hover,
+.calibrate-btn:hover,
+.save-entities-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ---------- Device cards ---------- */
 
 .device-list {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
+
+.device-card,
+.zone-card { margin-bottom: 0; }
 
 .device-card-header {
   display: flex;
@@ -193,81 +417,104 @@ header h1 {
 .device-card-header h3 {
   margin: 0;
   font-size: 1.05rem;
+  font-weight: 620;
+  letter-spacing: -0.01em;
 }
 
 .device-card-header .status {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--r-pill);
+  background: var(--glass-well);
+  border: 1px solid var(--hairline);
+  white-space: nowrap;
 }
 
 .device-meta {
-  margin: 0.25rem 0 0.75rem;
+  margin: 0.35rem 0 0.9rem;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.83rem;
 }
 
 .device-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
   margin-bottom: 0.5rem;
 }
 
+details { margin-top: 0.7rem; }
+
+summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 550;
+  border-radius: var(--r-sm);
+}
+
+summary:hover { color: var(--text); }
+
 .build-log {
   max-height: 260px;
   overflow: auto;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.75rem;
-  font-size: 0.78rem;
+  background: var(--glass-well);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  padding: 0.85rem;
+  margin-top: 0.6rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-esp-web-install-button {
-  display: inline-block;
-  margin-top: 0.5rem;
-}
-
-esp-web-install-button button[slot="activate"] {
-  background: var(--accent);
-  border: none;
-  border-radius: 8px;
-  color: #06231d;
-  font-weight: 600;
-  padding: 0.55rem 1rem;
-  cursor: pointer;
-}
-
-.hint {
   color: var(--muted);
-  font-size: 0.85rem;
-  margin: -0.25rem 0 1rem;
 }
+
+/* Sits inside .device-actions so it lines up with Rebuild/Delete rather
+   than dropping onto its own row. */
+esp-web-install-button { display: inline-flex; }
+
+/* ---------- Live state (Phase 3) ---------- */
 
 .live-block {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--hairline);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem 1.25rem;
+  gap: 0.75rem 1.35rem;
 }
 
+/* Readings render as small stat blocks (label over value) so they stay
+   legible next to the controls instead of running together in one line. */
 .live-row {
   display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 6.5rem;
 }
 
 .live-label {
-  color: var(--muted);
+  color: var(--faint);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
 }
 
 .live-motion,
 .live-score {
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Controls sit apart from the readings. */
+.live-block .threshold-form {
+  margin-left: auto;
+  padding-left: 1rem;
 }
 
 .threshold-form {
@@ -279,38 +526,22 @@ esp-web-install-button button[slot="activate"] {
 .threshold-form label {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  color: var(--muted);
+  gap: 0.45rem;
 }
 
 .threshold-form input {
-  width: 5rem;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  padding: 0.35rem 0.5rem;
-}
-
-.threshold-form button,
-.calibrate-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  padding: 0.4rem 0.8rem;
-  cursor: pointer;
+  width: 5.2rem;
+  padding: 0.38rem 0.55rem;
 }
 
 .live-error {
   flex-basis: 100%;
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.83rem;
+  font-weight: 500;
 }
 
 .entity-editor {
-  margin-top: 0.6rem;
   font-size: 0.82rem;
   color: var(--muted);
 }
@@ -319,174 +550,194 @@ esp-web-install-button button[slot="activate"] {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
-  margin: 0.4rem 0;
+  gap: 0.75rem;
+  margin: 0.45rem 0;
 }
 
 .entity-editor input {
   flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  padding: 0.3rem 0.5rem;
-  font-size: 0.8rem;
+  min-width: 0;
+  padding: 0.34rem 0.55rem;
+  font-size: 0.79rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.save-entities-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  padding: 0.35rem 0.7rem;
-  cursor: pointer;
-  margin-top: 0.3rem;
-}
+.save-entities-btn { margin-top: 0.45rem; }
 
-.zone-devices-label {
-  grid-column: 1 / -1;
-}
+/* ---------- Zones ---------- */
+
+.zone-devices-label { grid-column: 1 / -1; }
 
 .zone-device-picker {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.4rem;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 
-.zone-device-option {
+/* Specificity has to match `.device-form label`, which sets column
+   direction — otherwise the checkbox stacks on top of the name. */
+.device-form .zone-device-option {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 0.35rem;
-  font-weight: 400;
+  gap: 0.45rem;
+  font-size: 0.87rem;
+  font-weight: 450;
   color: var(--text);
+  background: var(--glass-well);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  padding: 0.35rem 0.85rem 0.35rem 0.6rem;
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease);
 }
+
+.device-form .zone-device-option:hover { border-color: var(--accent-line); }
+
+/* The zone form is a single wide field + a device picker, so the device
+   form's auto-fit columns would leave a large gap beside the name. */
+#zone-form { grid-template-columns: 1fr; }
+#zone-form > label:first-of-type { max-width: 22rem; }
 
 .zone-members {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0.5rem 0 0.75rem;
+  gap: 0.45rem;
+  margin: 0.6rem 0 0.9rem;
 }
 
 .chip {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0.25rem 0.65rem;
-  font-size: 0.8rem;
+  background: var(--glass-well);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  padding: 0.28rem 0.75rem;
+  font-size: 0.79rem;
+  color: var(--muted);
 }
 
-/* Dashboard (Phase 4): glass tiles, deliberately a step glossier than the
-   flat management tabs — this is the glanceable "look at everything" view. */
+/* ---------- Dashboard (Phase 4) ---------- */
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 1rem;
 }
 
+.dash-section + .dash-section { margin-top: 2rem; }
+
+.dash-heading {
+  margin: 0 0 0.8rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 650;
+  color: var(--faint);
+}
+
 .glass-tile {
-  background: color-mix(in srgb, var(--panel) 70%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
-  border-radius: 20px;
-  padding: 1.25rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent);
+  border-radius: var(--r-xl);
+  padding: 1.3rem;
+  transition: transform 0.22s var(--ease), box-shadow 0.22s var(--ease);
+}
+
+.glass-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-raised), inset 0 1px 0 var(--sheen);
 }
 
 .glass-tile-header {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.6rem;
 }
 
 .glass-tile-header h3 {
   margin: 0;
   font-size: 1rem;
+  font-weight: 620;
+  letter-spacing: -0.01em;
 }
 
 .tile-dot {
-  width: 0.65rem;
-  height: 0.65rem;
+  width: 0.6rem;
+  height: 0.6rem;
   border-radius: 50%;
-  background: var(--muted);
+  background: var(--faint);
   flex-shrink: 0;
+  transition: background 0.3s var(--ease), box-shadow 0.3s var(--ease);
 }
 
 .tile-dot-on {
   background: var(--ok);
-  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--ok) 70%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 22%, transparent);
 }
 
-.tile-dot-off {
-  background: var(--border);
-}
-
-.tile-dot-unknown {
-  background: var(--warn);
-}
+.tile-dot-off { background: var(--faint); opacity: 0.45; }
+.tile-dot-unknown { background: var(--warn); }
 
 .tile-sub {
-  margin: 0.3rem 0 0.75rem;
+  margin: 0.35rem 0 0.9rem;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
 .ble-connect-btn {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  border-radius: 10px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-sm);
   color: var(--accent);
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.45rem 0.85rem;
-  cursor: pointer;
+  font-size: 0.83rem;
+  font-weight: 620;
+  padding: 0.42rem 0.9rem;
 }
 
-.ble-connect-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
+.ble-connect-btn:hover:not(:disabled) { background: var(--accent-line); }
 
-.ble-gauge {
-  margin-top: 0.85rem;
-}
+.ble-gauge { margin-top: 0.9rem; }
 
 .gauge-track {
-  height: 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--glass-well);
+  border: 1px solid var(--hairline);
   overflow: hidden;
 }
 
 .gauge-fill {
   height: 100%;
   width: 0%;
-  background: var(--muted);
-  transition: width 60ms linear;
+  border-radius: var(--r-pill);
+  background: var(--faint);
+  transition: width 60ms linear, background 0.3s var(--ease);
 }
 
-.gauge-fill-on {
-  background: var(--ok);
-}
+.gauge-fill-on { background: var(--ok); }
 
 .gauge-readout {
-  margin: 0.4rem 0 0;
-  font-size: 0.82rem;
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
 .gauge-sysinfo {
   margin: 0.3rem 0 0;
-  font-size: 0.72rem;
-  color: var(--muted);
+  font-size: 0.71rem;
+  color: var(--faint);
   word-break: break-word;
 }
 
 .ble-error {
   margin-top: 0.5rem;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+}
+
+/* ---------- Accessibility ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

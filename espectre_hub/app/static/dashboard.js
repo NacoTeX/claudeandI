@@ -105,9 +105,28 @@ async function loadDashboard() {
     }
   }
 
-  const deviceTiles = deviceList.map((d) => renderDashboardTile(d, boardsByKey, zoneNamesByDevice)).join("");
-  const zoneTiles = zoneList.map(renderZoneTile).join("");
-  grid.innerHTML = deviceTiles + zoneTiles || '<p class="status status-pending">Add devices and zones on the other tabs first.</p>';
+  // Devices and zones are visually identical as bare tiles, so they get
+  // their own labelled sections rather than one undifferentiated grid.
+  const sections = [];
+  if (deviceList.length) {
+    sections.push(`
+      <section class="dash-section">
+        <h2 class="dash-heading">Devices</h2>
+        <div class="dashboard-grid">
+          ${deviceList.map((d) => renderDashboardTile(d, boardsByKey, zoneNamesByDevice)).join("")}
+        </div>
+      </section>`);
+  }
+  if (zoneList.length) {
+    sections.push(`
+      <section class="dash-section">
+        <h2 class="dash-heading">Zones</h2>
+        <div class="dashboard-grid">${zoneList.map(renderZoneTile).join("")}</div>
+      </section>`);
+  }
+  grid.innerHTML = sections.length
+    ? sections.join("")
+    : '<p class="status status-pending">Add devices and zones on the other tabs first.</p>';
 
   for (const el of grid.querySelectorAll("[data-dash-id]")) {
     const id = el.dataset.dashId;
