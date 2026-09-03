@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1
+
+- Fix: firmware builds failed immediately with
+  `esphome: error: unrecognized arguments: --no-logs`. That flag only
+  exists on ESPHome's `run` subcommand, not on `compile`.
+
 ## 0.4.0
 
 - Phase 4: live dashboard and optional high-resolution BLE visualizer.
