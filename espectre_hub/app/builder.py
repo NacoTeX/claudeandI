@@ -84,7 +84,7 @@ def run_build(device: Device) -> None:
         config_path(device.id).write_text(yaml_text, encoding="utf-8")
 
         proc = subprocess.run(
-            ["esphome", "compile", "--no-logs", str(config_path(device.id))],
+            ["esphome", "compile", str(config_path(device.id))],
             cwd=ddir,
             capture_output=True,
             text=True,
