@@ -6,5 +6,5 @@ labels:
   org.opencontainers.image.title: ESPectre Hub
   org.opencontainers.image.description: >-
     Self-hosted Wi-Fi CSI presence detection hub built on ESPectre.
-  org.opencontainers.image.source: https://github.com/nacotex/test
+  org.opencontainers.image.source: https://github.com/NacoTeX/claudeandI
   org.opencontainers.image.licenses: GPL-3.0-or-later

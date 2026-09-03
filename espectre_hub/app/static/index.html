@@ -50,7 +50,7 @@
         Opera do), so the live BLE gauge below is unavailable — tiles still
         show status polled from Home Assistant every few seconds.
       </div>
-      <div id="dashboard-grid" class="dashboard-grid"></div>
+      <div id="dashboard-grid"></div>
     </section>
 
     <section id="tab-devices" class="tab-panel" hidden>
@@ -75,7 +75,7 @@
             <select name="board" id="board-select" required></select>
           </label>
           <label>Wi-Fi SSID
-            <input name="wifi_ssid" required maxlength="32">
+            <input name="wifi_ssid" placeholder="your network name" required maxlength="32">
           </label>
           <label>Wi-Fi password
             <input name="wifi_password" type="password" maxlength="64" placeholder="leave empty for open network">

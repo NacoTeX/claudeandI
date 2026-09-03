@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.5.0
+
+- UI reworked into one consistent design system rather than a glass
+  dashboard bolted onto flat management tabs:
+  - Real light **and** dark themes. The stylesheet previously claimed
+    `color-scheme: light dark` while hardcoding dark colours, so in light
+    mode the browser rendered native controls light against dark panels.
+  - An atmospheric background so the frosted-glass surfaces actually have
+    something to refract — `backdrop-filter` over a flat fill blurred
+    nothing.
+  - One scale for radii, one set of glass elevations, three button roles
+    (primary / secondary / ghost), a single input style, keyboard focus
+    rings, hover states, and `prefers-reduced-motion` support.
+  - Tabs are now a segmented control; live readings render as labelled
+    stat blocks instead of one crowded line.
+- Fix: in the zone form, device checkboxes stacked on top of their labels
+  — `.zone-device-option` inherited `flex-direction: column` from
+  `.device-form label` and lacked the specificity to override it.
+- Fix: "Flash over USB" dropped onto its own row below the other actions;
+  it now sits in the action bar, and once a device is built it becomes the
+  primary action while "Rebuild" steps down to secondary.
+- Dashboard tiles are grouped under Devices/Zones headings — the two were
+  previously indistinguishable.
+- Repository URLs updated after the repo was renamed.
+
 ## 0.4.1
 
 - Fix: firmware builds failed immediately with
