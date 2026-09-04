@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.2
+
+- Fix: on phones the page was wider than the screen and scrolled
+  sideways, cutting off content at the left edge. The tab strip was the
+  sole cause — four German labels do not fit 360px, and as an
+  `inline-flex` it silently widened the whole document by up to 58px. It
+  now scrolls within itself, and below 400px the labels are trimmed
+  horizontally so all four still fit from 360px up.
+- Phones are now a proper layout rather than a shrunken desktop:
+  tighter page padding, readings and controls that stack instead of
+  being squeezed onto one line, entity-id fields with their labels above
+  them, long device names that wrap without pushing their status badge
+  away, and full-width action buttons — except Delete, which stays small.
+- Measured rather than eyeballed: horizontal overflow is now 0 px across
+  320/360/375/393/768/1280px on every tab.
+
 ## 0.9.1
 
 - Fix: the add-on image would not build at all. `paho-mqtt>=2.1` conflicted
