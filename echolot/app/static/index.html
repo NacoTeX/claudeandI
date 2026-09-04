@@ -22,37 +22,58 @@
     </header>
 
     <section id="tab-overview" class="tab-panel">
-      <section class="cards">
-        <div class="card">
-          <h2>Backend</h2>
-          <p id="health-status" class="status status-pending">wird geprüft…</p>
-        </div>
-        <div class="card">
-          <h2>ESPHome</h2>
-          <p id="esphome-status" class="status status-pending">wird geprüft…</p>
-        </div>
-        <div class="card">
-          <h2>Bestand</h2>
-          <p id="inventory-status" class="status status-pending">…</p>
-          <p id="traffic-estimate" class="card-note" hidden></p>
-        </div>
-        <div class="card">
-          <h2>Zonen in Home Assistant</h2>
-          <p id="mqtt-status" class="status status-pending">wird geprüft…</p>
-          <p id="mqtt-note" class="card-note" hidden></p>
-        </div>
-      </section>
+      <!-- Rendered from one /api/overview call; see static/app.js. The page
+           is deliberately state-dependent: with no devices it is a setup
+           path, with devices it is a status report. -->
+      <div id="overview-loading" class="status status-pending">wird geladen…</div>
 
-      <section class="roadmap">
-        <h2>Projektstand</h2>
-        <ol>
-          <li class="done">Phase 1 — Add-on-Grundgerüst</li>
-          <li class="done">Phase 2 — Flashen über den Browser</li>
-          <li class="done">Phase 3 — Zonen &amp; Konfiguration</li>
-          <li class="done">Phase 4 — Dashboard / Visualizer</li>
-          <li class="done">Phase 5 — Feinschliff</li>
+      <section id="overview-empty" hidden>
+        <h2>Ersteinrichtung</h2>
+        <p class="hint">
+          Echolot erkennt Anwesenheit an den Störungen, die ein Körper im
+          WLAN-Signal hinterlässt — ohne Kamera, ohne Mikrofon, ohne dass
+          jemand etwas tragen muss. Drei Schritte bis dahin:
+        </p>
+        <ol class="setup-steps">
+          <li>
+            <strong>Gerät anlegen und Firmware bauen.</strong>
+            Board wählen, WLAN-Zugangsdaten eintragen, bauen lassen. Der
+            erste Build lädt einmalig rund 2 GB Werkzeugkette und dauert
+            entsprechend.
+            <button class="link-btn" data-goto="devices">Zu den Geräten</button>
+          </li>
+          <li>
+            <strong>Über USB flashen und in Home Assistant übernehmen.</strong>
+            Das Flashen braucht Chrome oder Edge auf einem Rechner. Danach
+            meldet sich das Gerät unter Einstellungen → Geräte &amp; Dienste;
+            dort fragt Home Assistant nach dem Verschlüsselungscode von der
+            Gerätekarte.
+          </li>
+          <li>
+            <strong>Zonen bilden.</strong>
+            Eine Zone fasst Geräte zu einem Anwesenheitszustand zusammen und
+            erscheint in Home Assistant als Belegungssensor.
+            <button class="link-btn" data-goto="zones">Zu den Zonen</button>
+          </li>
         </ol>
       </section>
+
+      <div id="overview-body" hidden>
+        <section id="overview-zones-section">
+          <h2>Jetzt</h2>
+          <div id="overview-zones" class="zone-strip"></div>
+        </section>
+
+        <section id="overview-problems-section" hidden>
+          <h2>Braucht Aufmerksamkeit</h2>
+          <ul id="overview-problems" class="problem-list"></ul>
+        </section>
+
+        <section>
+          <h2>System</h2>
+          <dl id="overview-system" class="system-facts"></dl>
+        </section>
+      </div>
     </section>
 
     <section id="tab-dashboard" class="tab-panel" hidden>

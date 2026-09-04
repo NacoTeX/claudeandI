@@ -6,12 +6,6 @@
 const POLL_INTERVAL_MS = 2000;
 const activePolls = new Set();
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]));
-}
-
 async function loadBoards() {
   const select = document.getElementById("board-select");
   try {

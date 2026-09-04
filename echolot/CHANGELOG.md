@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.11.1
+
+The Übersicht tab is rebuilt around what someone actually wants to know on
+opening it.
+
+- **The project-phase list is gone.** It told users which of *our* phases
+  were finished, which is a fact about the repository, not about their
+  house.
+- The four status cards are replaced by three sections in order of use:
+  **Jetzt** (every zone's live state, with the hold countdown), **Braucht
+  Aufmerksamkeit** (only when something is wrong, each entry worded as the
+  thing to do about it, with a link to the tab that fixes it), and
+  **System** (device count, total radio load, zone export, ESPHome
+  version) styled to recede.
+- "Backend: online" is gone with them. If the page rendered, the backend
+  is up; the card could never say anything else.
+- With no devices yet, the tab is a three-step setup path rather than a
+  status report about an empty system.
+- Work in progress is deliberately not listed as a problem. A build that
+  is still running is not a fault, and listing it trains people to ignore
+  the list.
+- One `/api/overview` request replaces what would have been one call per
+  zone plus three per device from the browser, and it only polls while the
+  tab is actually visible.
+- The ESPHome version lookup is cached — it spawned a subprocess per load
+  and cannot change while the container runs.
+- Three scripts each carried their own copy of `escapeHtml` and of the
+  seconds formatter. They now share one definition in `app.js`, which
+  loads first.
+
 ## 0.11.0
 
 The firmware learns to answer for itself, updates stop needing a USB
