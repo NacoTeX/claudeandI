@@ -49,6 +49,11 @@ cable, and the devices are no longer wide open on the network.
   config`, and checks the add-on manifest. `tools/check_metadata.py` found
   a real gap on its first run: `mqtt_export` had no translation.
 - `README.md` for the add-on; `translations/en.yaml` completed.
+- CI's first run caught its own bug: `pip install ... pytest`, unpinned,
+  made the resolver backtrack through pytest releases until it reached a
+  2013-era version that bootstraps `distribute` over plain HTTP, and the
+  job died on `HTTP Error 403: SSL is required`. pytest is pinned in a
+  separate `requirements-dev.txt`, verified to resolve.
 - Fix: a device stored before this release has no encryption key, and the
   generating default would have produced a *different* one on every read —
   so the key shown would not have been the key in the firmware. Missing

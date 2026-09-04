@@ -52,7 +52,7 @@ toolchain into `/data/platformio`, where it stays for subsequent builds.
 ## Developing
 
 ```sh
-pip install -r app/requirements.txt pytest
+pip install -r app/requirements.txt -r requirements-dev.txt
 python -m pytest tests -q          # unit tests
 python tools/validate_firmware.py  # every board through `esphome config`
 python tools/check_metadata.py     # add-on manifest sanity

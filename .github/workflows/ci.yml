@@ -20,7 +20,10 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install dependencies
-        run: pip install -r echolot/app/requirements.txt pytest
+        # The runtime set, not a reduced one: installing what actually
+        # ships is how the paho-mqtt/ESPHome version conflict was caught
+        # before it reached a user.
+        run: pip install -r echolot/app/requirements.txt -r echolot/requirements-dev.txt
       - name: Run tests
         run: python -m pytest echolot/tests -q
 
