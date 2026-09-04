@@ -338,6 +338,44 @@ async def api_calibrate_device(device_id: str) -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/devices/{device_id}/toolchain")
+def api_toolchain_state(device_id: str) -> dict:
+    """Whether this board's cross compiler is actually installed.
+
+    PlatformIO downloads it on the first build, so "absent" is normal then;
+    "broken" means a download was interrupted and the package has to go.
+    """
+    device = devices.get_device(device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
+    board = BOARDS.get(device.config.board)
+    if board is None:
+        raise HTTPException(status_code=422, detail=f"Unbekanntes Board '{device.config.board}'")
+    return {"board": board.key, "label": board.label, **builder.toolchain_state(board)}
+
+
+@app.post("/api/devices/{device_id}/toolchain/reset")
+def api_reset_toolchain(device_id: str) -> dict:
+    """Throw away this board's toolchain package so the next build refetches it.
+
+    Refused while a build is running: deleting the compiler out from under
+    a live compile turns one clear failure into a confusing one.
+    """
+    device = devices.get_device(device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
+    board = BOARDS.get(device.config.board)
+    if board is None:
+        raise HTTPException(status_code=422, detail=f"Unbekanntes Board '{device.config.board}'")
+    if device.status in (devices.BuildStatus.QUEUED, devices.BuildStatus.RUNNING):
+        raise HTTPException(
+            status_code=409,
+            detail="Für dieses Gerät läuft gerade ein Build — warte, bis er beendet ist",
+        )
+    removed = builder.reset_toolchain(board)
+    return {"removed": removed, **builder.toolchain_state(board)}
+
+
 @app.post("/api/devices/{device_id}/build", status_code=202)
 async def api_build_device(device_id: str) -> dict:
     device = devices.get_device(device_id)

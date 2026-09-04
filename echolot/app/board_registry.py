@@ -29,6 +29,37 @@ class Board:
     cpu_frequency: str | None = None
     experimental: bool = False
 
+    @property
+    def toolchain_package(self) -> str:
+        """PlatformIO package holding this chip's cross compiler.
+
+        Mirrors the split in platform-espressif32's own espidf.py: the
+        Xtensa cores get one toolchain, every RISC-V core the other. Our
+        board keys are the ESP-IDF MCU names, so the test is the same one
+        the builder makes.
+        """
+        return (
+            "toolchain-xtensa-esp-elf"
+            if self.key in ("esp32", "esp32s2", "esp32s3")
+            else "toolchain-riscv32-esp"
+        )
+
+    @property
+    def compiler_binary(self) -> str:
+        """The gcc that must exist inside the toolchain package's bin/.
+
+        PlatformIO only checks that the toolchain *directory* exists before
+        putting its bin/ on PATH — never that a compiler is in it. So a
+        half-extracted download passes that check and fails much later
+        inside CMake. Naming the binary lets us check what PlatformIO does
+        not.
+        """
+        return (
+            "xtensa-esp-elf-gcc"
+            if self.toolchain_package == "toolchain-xtensa-esp-elf"
+            else "riscv32-esp-elf-gcc"
+        )
+
 
 BOARDS: dict[str, Board] = {
     b.key: b

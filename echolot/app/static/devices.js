@@ -104,6 +104,14 @@ function renderDevice(device) {
     ? `<p class="status status-err">${escapeHtml(device.build_error)}</p>`
     : "";
 
+  // Only offered after a failure the backend traced to the toolchain: the
+  // button throws away a ~2 GB download, so it must not read as a routine
+  // "try this" next to every build.
+  const toolchainBroken = (device.build_error || "").includes("Toolchain");
+  const repairBlock = toolchainBroken
+    ? `<button class="repair-btn btn-secondary" ${canBuild ? "" : "disabled"}>Toolchain zurücksetzen</button>`
+    : "";
+
   const flashBlock = built
     ? `<esp-web-install-button manifest="api/devices/${device.id}/manifest.json">
          <button slot="activate">Über USB flashen</button>
@@ -145,12 +153,42 @@ function renderDevice(device) {
       ${errorLine}
       <div class="device-actions">
         <button class="build-btn${built ? " btn-secondary" : ""}" ${canBuild ? "" : "disabled"}>${built ? "Neu bauen" : "Firmware bauen"}</button>
+        ${repairBlock}
         ${flashBlock}
         <button class="delete-btn">Löschen</button>
       </div>
       ${liveBlock}
       ${logBlock}
     </div>`;
+}
+
+async function resetToolchain(id, button) {
+  if (!confirm(
+    "Die Toolchain für dieses Board wird gelöscht und beim nächsten Build " +
+    "neu heruntergeladen (rund 2 GB). Fortfahren?"
+  )) return;
+
+  button.disabled = true;
+  button.textContent = "Wird zurückgesetzt…";
+  try {
+    const res = await fetch(`api/devices/${id}/toolchain/reset`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(body.detail || "Die Toolchain konnte nicht zurückgesetzt werden");
+      return;
+    }
+    alert(
+      body.removed
+        ? "Toolchain entfernt. Starte den Build neu — der Download läuft dann automatisch."
+        : "Es war keine Toolchain installiert. Starte den Build einfach neu."
+    );
+    await loadDevices();
+  } catch (err) {
+    alert("Backend nicht erreichbar");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Toolchain zurücksetzen";
+  }
 }
 
 async function loadDevices() {
@@ -171,6 +209,9 @@ async function loadDevices() {
     const id = el.dataset.id;
     el.querySelector(".build-btn").addEventListener("click", () => startBuild(id));
     el.querySelector(".delete-btn").addEventListener("click", () => deleteDevice(id));
+
+    const repairBtn = el.querySelector(".repair-btn");
+    if (repairBtn) repairBtn.addEventListener("click", () => resetToolchain(id, repairBtn));
 
     const thresholdForm = el.querySelector(".threshold-form");
     if (thresholdForm) thresholdForm.addEventListener("submit", (evt) => pushThreshold(evt, id));

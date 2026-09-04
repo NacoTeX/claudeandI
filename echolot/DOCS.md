@@ -95,6 +95,36 @@ Score-based detection uses the highest movement score across the zone's
 members. A member with no movement-score entity falls back to its plain
 motion sensor, so mixing tuned and untuned devices in one zone works.
 
+### Wenn ein Build am Compiler scheitert
+
+A build that ends in
+
+```
+The CMAKE_C_COMPILER:
+    riscv32-esp-elf-gcc
+  is not a full path and was not found in the PATH.
+```
+
+is almost never a configuration problem. PlatformIO downloads roughly 2 GB
+of ESP-IDF and cross toolchain before the first build, and its own guard
+checks only that the toolchain *directory* exists before putting that
+directory's `bin/` on `PATH` — never that a compiler is inside it. A
+download interrupted partway therefore sails past that check and dies much
+later, inside CMake, with nothing left pointing at the real cause.
+
+Echolot recognises that failure and says so instead: the device card
+reports that the toolchain is incomplete and offers **Toolchain
+zurücksetzen**, which deletes the package so the next build fetches it
+again. The button appears only after such a failure — it discards a
+multi-gigabyte download, so it is not something to reach for casually.
+
+The cache itself lives in `/data/platformio`, not in PlatformIO's default
+`~/.platformio`. The default sits in the container's writable layer and is
+discarded on every add-on restart or update, which would mean re-fetching
+those 2 GB each time and getting a fresh chance at an interrupted
+download. Budget the space accordingly on small installations; the
+official ESPHome add-on stores its cache the same way.
+
 ### Dashboard
 
 The **Dashboard** tab shows every device and zone as a tile. Each device
