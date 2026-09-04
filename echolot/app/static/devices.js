@@ -132,6 +132,7 @@ function renderDevice(device) {
          </form>
          <button type="button" class="calibrate-btn">Neu kalibrieren</button>
          <p class="live-error status status-err" hidden></p>
+         <button type="button" class="detect-btn btn-secondary" hidden>Entities in Home Assistant suchen</button>
        </div>
        <details class="entity-editor">
          <summary>HA-Entity-IDs</summary>
@@ -160,6 +161,31 @@ function renderDevice(device) {
       ${liveBlock}
       ${logBlock}
     </div>`;
+}
+
+async function detectEntities(id, button) {
+  button.disabled = true;
+  const original = button.textContent;
+  button.textContent = "Wird gesucht…";
+  try {
+    const res = await fetch(`api/devices/${id}/entities/detect`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(body.detail || "Die Entities konnten nicht gefunden werden");
+      return;
+    }
+    alert(
+      "Gefunden:\n" +
+      Object.values(body.detected).join("\n") +
+      "\n\nDie IDs sind gespeichert."
+    );
+    await loadDevices();
+  } catch (err) {
+    alert("Backend nicht erreichbar");
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
 }
 
 async function resetToolchain(id, button) {
@@ -216,6 +242,9 @@ async function loadDevices() {
     const thresholdForm = el.querySelector(".threshold-form");
     if (thresholdForm) thresholdForm.addEventListener("submit", (evt) => pushThreshold(evt, id));
 
+    const detectBtn = el.querySelector(".detect-btn");
+    if (detectBtn) detectBtn.addEventListener("click", () => detectEntities(id, detectBtn));
+
     const calibrateBtn = el.querySelector(".calibrate-btn");
     if (calibrateBtn) calibrateBtn.addEventListener("click", () => calibrateDevice(id, calibrateBtn));
 
@@ -244,15 +273,22 @@ async function refreshLiveState(id) {
     state = { available: false, error: "Backend nicht erreichbar" };
   }
 
+  const detectBtn = block.querySelector(".detect-btn");
+
   if (!state.available) {
     motionEl.textContent = "nicht verfügbar";
     motionEl.className = "live-motion status status-warn";
     scoreEl.textContent = "—";
     errorEl.textContent = state.error || "Nicht verfügbar";
     errorEl.hidden = false;
+    // The lookup only helps when the entity is missing; a broken
+    // connection to Home Assistant is a different problem and offering it
+    // there would just waste a click.
+    if (detectBtn) detectBtn.hidden = !(state.error || "").includes("existiert in Home Assistant nicht");
     return;
   }
 
+  if (detectBtn) detectBtn.hidden = true;
   errorEl.hidden = true;
   motionEl.textContent = state.motion ? "erkannt" : "frei";
   motionEl.className = `live-motion status ${state.motion ? "status-ok" : "status-pending"}`;
