@@ -13,15 +13,16 @@ license-free alternative to [TOMMY](https://www.tommysense.com).
 
 ## Configuration
 
-| Option      | Description                                              |
-|-------------|------------------------------------------------------------|
-| `log_level` | Verbosity of the add-on's own log output. One of `trace`, `debug`, `info`, `notice`, `warning`, `error`, `fatal`. |
+| Option        | Description |
+|---------------|-------------|
+| `log_level`   | Verbosity of the add-on's own log output. One of `trace`, `debug`, `info`, `notice`, `warning`, `error`, `fatal`. |
+| `mqtt_export` | Publish zones to Home Assistant as occupancy sensors over MQTT (default `true`). Needs an MQTT broker such as the Mosquitto add-on; without one the add-on runs normally and zones simply stay local to this interface. |
 
 ## Current phase
 
-This add-on is at **Phase 4**: a live dashboard, on top of Phase 1
-(add-on skeleton), Phase 2 (device flashing), and Phase 3 (zones and
-runtime configuration).
+All five planned phases are implemented: add-on skeleton, device
+flashing, zones and runtime configuration, the live dashboard, and the
+Phase 5 polish (traffic estimation, presets, zone export).
 
 ### Flashing a device
 
@@ -106,6 +107,43 @@ threshold tuning practical. This needs:
 
 Disconnecting (or navigating away) puts the chart back on the polled
 feed.
+
+### Zones in Home Assistant
+
+Zones would otherwise exist only inside this add-on — visible here, but
+unusable in an automation, on a Home Assistant dashboard, or in HomeKit.
+With an MQTT broker available (the Mosquitto add-on is the usual one),
+each zone is published via MQTT discovery and appears as its own
+`binary_sensor` with device class *occupancy*, named after the zone.
+
+From there Home Assistant's own HomeKit and Matter bridges can export it
+further. That is deliberately how this works instead of speaking Matter
+directly: implementing Matter commissioning inside an add-on is a large,
+fragile undertaking, while Home Assistant already does it well for any
+entity it knows about.
+
+Deleting a zone retracts its discovery message, so the entity disappears
+rather than lingering as "unavailable". If a zone's devices can't be
+reached, no state is published at all — Home Assistant then keeps the
+last known value instead of being told a confident "clear".
+
+The **Übersicht** tab shows whether the export is active, and why not if
+it isn't. Set `mqtt_export: false` in the add-on options to turn it off.
+
+### Presets and radio load
+
+Every device probes the air continuously, so its packet rate is a real
+cost: at the default 100 packets/s a device generates roughly 9 KB/s of
+Wi-Fi traffic (figure from ESPectre's own SETUP.md). The device form
+estimates this per device, and the **Übersicht** tab sums it across all
+of them — worth a glance before adding the fifth sensor.
+
+The **Voreinstellung** picker offers four starting points instead of
+four interacting numbers to guess at: *Ausgewogen* (ESPectre's
+defaults), *Sparsam* (less than half the radio load), *Empfindlich*
+(double the sampling and the lowest threshold), and *Ohne Kalibrierung*
+(the neural-network algorithm, which needs no settling period). Editing
+any of the values leaves the preset and switches to custom.
 
 ## Support
 

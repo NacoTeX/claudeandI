@@ -34,6 +34,12 @@
         <div class="card">
           <h2>Bestand</h2>
           <p id="inventory-status" class="status status-pending">…</p>
+          <p id="traffic-estimate" class="card-note" hidden></p>
+        </div>
+        <div class="card">
+          <h2>Zonen in Home Assistant</h2>
+          <p id="mqtt-status" class="status status-pending">wird geprüft…</p>
+          <p id="mqtt-note" class="card-note" hidden></p>
         </div>
       </section>
 
@@ -44,7 +50,7 @@
           <li class="done">Phase 2 — Flashen über den Browser</li>
           <li class="done">Phase 3 — Zonen &amp; Konfiguration</li>
           <li class="done">Phase 4 — Dashboard / Visualizer</li>
-          <li>Phase 5 — Feinschliff</li>
+          <li class="done">Phase 5 — Feinschliff</li>
         </ol>
       </section>
     </section>
@@ -72,6 +78,12 @@
       <section class="card">
         <h2>Gerät anlegen</h2>
         <form id="device-form" class="device-form">
+          <label class="preset-label">Voreinstellung
+            <select id="preset-select">
+              <option value="">— eigene Werte —</option>
+            </select>
+            <span id="preset-description" class="field-note"></span>
+          </label>
           <label>Gerätename
             <input name="name" placeholder="wohnzimmer" pattern="[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?" required>
           </label>
@@ -95,6 +107,7 @@
           </label>
           <label>Paketrate (Pakete/s)
             <input name="traffic_generator_rate" type="number" min="0" max="1000" value="100">
+            <span id="rate-estimate" class="field-note"></span>
           </label>
           <label>Erkennungsschwelle
             <input name="segmentation_threshold" value="auto" placeholder="auto, min oder 0.0–10.0">

@@ -1,0 +1,200 @@
+"""Publishes zones to Home Assistant as occupancy sensors over MQTT.
+
+Zones otherwise live only inside this add-on: you can see them here, but
+you can't use them in an automation, put them on a Home Assistant
+dashboard, or export them to HomeKit/Matter. Publishing them via MQTT
+discovery turns each one into a real `binary_sensor` entity, and from
+there Home Assistant's own bridges handle the rest — which is a far
+better answer than implementing Matter commissioning in here.
+
+Credentials come from the Supervisor (`services: mqtt:want` in
+config.yaml), so nothing needs configuring when the Mosquitto add-on is
+installed. Without a broker the bridge simply stays dormant.
+"""
+
+import asyncio
+import json
+import logging
+import os
+import threading
+
+import httpx
+import paho.mqtt.client as mqtt
+
+logger = logging.getLogger("echolot.mqtt")
+
+DISCOVERY_PREFIX = "homeassistant"
+BASE_TOPIC = "echolot"
+AVAILABILITY_TOPIC = f"{BASE_TOPIC}/status"
+
+# Identifies this add-on as one device that owns all the zone entities.
+DEVICE_INFO = {
+    "identifiers": ["echolot"],
+    "name": "Echolot",
+    "manufacturer": "Echolot",
+    "model": "Wi-Fi CSI presence",
+}
+
+
+class MqttUnavailable(Exception):
+    """No broker configured, or the Supervisor wouldn't tell us about one."""
+
+
+def zone_state_topic(zone_id: str) -> str:
+    return f"{BASE_TOPIC}/zone/{zone_id}/state"
+
+
+def zone_discovery_topic(zone_id: str) -> str:
+    return f"{DISCOVERY_PREFIX}/binary_sensor/{BASE_TOPIC}/zone_{zone_id}/config"
+
+
+def zone_discovery_payload(zone_id: str, zone_name: str) -> dict:
+    """The config message that makes Home Assistant create the entity."""
+    return {
+        "name": zone_name,
+        "unique_id": f"echolot_zone_{zone_id}",
+        "object_id": f"echolot_{zone_name.lower().replace(' ', '_')}",
+        "state_topic": zone_state_topic(zone_id),
+        "device_class": "occupancy",
+        "payload_on": "ON",
+        "payload_off": "OFF",
+        "availability_topic": AVAILABILITY_TOPIC,
+        "payload_available": "online",
+        "payload_not_available": "offline",
+        "device": DEVICE_INFO,
+    }
+
+
+async def fetch_broker_config() -> dict:
+    """Ask the Supervisor for the MQTT service it manages."""
+    token = os.environ.get("ECHOLOT_SUPERVISOR_TOKEN") or os.environ.get("SUPERVISOR_TOKEN")
+    base = os.environ.get("ECHOLOT_SUPERVISOR_URL", "http://supervisor")
+    if not token:
+        raise MqttUnavailable("Kein SUPERVISOR_TOKEN vorhanden")
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                f"{base}/services/mqtt",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    except httpx.HTTPError as err:
+        raise MqttUnavailable(f"Supervisor nicht erreichbar: {err}") from err
+    if resp.status_code != 200:
+        raise MqttUnavailable(f"Supervisor meldet kein MQTT (HTTP {resp.status_code})")
+    data = resp.json().get("data") or {}
+    if not data.get("host"):
+        raise MqttUnavailable("Supervisor lieferte keine Broker-Adresse")
+    return data
+
+
+class ZoneBridge:
+    """Keeps one MQTT connection and mirrors zone state onto it."""
+
+    def __init__(self) -> None:
+        self._client: mqtt.Client | None = None
+        self._lock = threading.Lock()
+        self._announced: set[str] = set()
+        self.connected = False
+        self.error: str | None = None
+
+    async def start(self) -> None:
+        config = await fetch_broker_config()
+        # paho 2.x requires an explicit callback API version.
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="echolot")
+        if config.get("username"):
+            client.username_pw_set(config["username"], config.get("password") or None)
+        if config.get("ssl"):
+            client.tls_set()
+        client.will_set(AVAILABILITY_TOPIC, "offline", retain=True)
+
+        def on_connect(_client, _userdata, _flags, reason_code, _properties=None):
+            ok = getattr(reason_code, "is_failure", None)
+            self.connected = (not ok) if ok is not None else reason_code == 0
+            if self.connected:
+                self.error = None
+                _client.publish(AVAILABILITY_TOPIC, "online", retain=True)
+                logger.info("MQTT connected to %s", config["host"])
+            else:
+                self.error = f"Verbindung abgelehnt: {reason_code}"
+
+        def on_disconnect(_client, _userdata, *_args):
+            self.connected = False
+
+        client.on_connect = on_connect
+        client.on_disconnect = on_disconnect
+
+        try:
+            client.connect_async(config["host"], int(config.get("port") or 1883), keepalive=60)
+            client.loop_start()  # reconnects on its own thread
+        except OSError as err:
+            raise MqttUnavailable(f"Verbindung fehlgeschlagen: {err}") from err
+        self._client = client
+
+    def stop(self) -> None:
+        if not self._client:
+            return
+        try:
+            self._client.publish(AVAILABILITY_TOPIC, "offline", retain=True)
+            self._client.loop_stop()
+            self._client.disconnect()
+        except Exception:  # noqa: BLE001 - shutdown must not raise
+            logger.debug("MQTT shutdown was not clean", exc_info=True)
+        self._client = None
+        self.connected = False
+
+    def publish_zone(self, zone_id: str, zone_name: str, occupied: bool, available: bool) -> None:
+        if not self._client or not self.connected:
+            return
+        with self._lock:
+            first_time = zone_id not in self._announced
+            self._announced.add(zone_id)
+        if first_time:
+            self._client.publish(
+                zone_discovery_topic(zone_id),
+                json.dumps(zone_discovery_payload(zone_id, zone_name)),
+                retain=True,
+            )
+        # An unreachable zone publishes nothing, so Home Assistant keeps the
+        # last value rather than reporting a confident "clear".
+        if available:
+            self._client.publish(zone_state_topic(zone_id), "ON" if occupied else "OFF", retain=True)
+
+    def forget_zone(self, zone_id: str) -> None:
+        """Empty retained config message removes the entity from HA."""
+        if not self._client or not self.connected:
+            return
+        self._client.publish(zone_discovery_topic(zone_id), "", retain=True)
+        self._client.publish(zone_state_topic(zone_id), "", retain=True)
+        with self._lock:
+            self._announced.discard(zone_id)
+
+    def status(self) -> dict:
+        if self.connected:
+            return {"enabled": True, "connected": True}
+        return {"enabled": self._client is not None, "connected": False, "error": self.error}
+
+
+bridge = ZoneBridge()
+
+
+async def publish_loop(compute_zone_state, list_zones, interval: float = 10.0) -> None:
+    """Mirror zone state to MQTT on a timer, independent of the UI."""
+    known: set[str] = set()
+    while True:
+        try:
+            zones = list_zones()
+            current = {z.id for z in zones}
+            for gone in known - current:
+                bridge.forget_zone(gone)
+            known = current
+
+            for zone in zones:
+                state = await compute_zone_state(zone)
+                bridge.publish_zone(
+                    zone.id, zone.name, bool(state.get("occupied")), bool(state.get("available"))
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - a bad cycle must not kill the loop
+            logger.exception("MQTT publish cycle failed")
+        await asyncio.sleep(interval)

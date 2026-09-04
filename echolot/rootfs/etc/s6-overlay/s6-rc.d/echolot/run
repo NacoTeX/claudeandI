@@ -6,6 +6,14 @@ bashio::log.info "Starting Echolot..."
 
 LOG_LEVEL=$(bashio::config 'log_level' 'info')
 
+# Publishing zones as Home Assistant entities is opt-out.
+if bashio::config.false 'mqtt_export'; then
+    export ECHOLOT_MQTT_EXPORT="false"
+    bashio::log.info "MQTT export disabled by configuration"
+else
+    export ECHOLOT_MQTT_EXPORT="true"
+fi
+
 cd /opt/echolot || bashio::exit.nok "Could not find app directory"
 
 exec python3 -m uvicorn app.main:app \

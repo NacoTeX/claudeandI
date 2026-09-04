@@ -12,7 +12,9 @@ these as HA entities already, so no direct device protocol is needed.
 
 import asyncio
 import logging
+import os
 import subprocess
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -21,7 +23,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
-from app import builder, devices, ha_client, zones
+from app import builder, devices, ha_client, mqtt_bridge, presets, zones
 from app.board_registry import BOARDS
 
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +31,43 @@ logger = logging.getLogger("echolot")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI(title="Echolot")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Run the MQTT zone publisher for the lifetime of the server.
+
+    Zones are only useful outside this add-on once they exist as Home
+    Assistant entities, and that mirroring has to keep running whether or
+    not anyone has the dashboard open.
+    """
+    task = None
+    if os.environ.get("ECHOLOT_MQTT_EXPORT", "true").lower() in ("0", "false", "no"):
+        logger.info("MQTT export disabled by configuration")
+    else:
+        try:
+            await mqtt_bridge.bridge.start()
+            task = asyncio.create_task(
+                mqtt_bridge.publish_loop(compute_zone_state, zones.list_zones)
+            )
+        except mqtt_bridge.MqttUnavailable as err:
+            # Entirely normal without the Mosquitto add-on; everything else
+            # keeps working, the zones just stay local to this UI.
+            logger.info("MQTT export inactive: %s", err)
+            mqtt_bridge.bridge.error = str(err)
+
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        mqtt_bridge.bridge.stop()
+
+
+app = FastAPI(title="Echolot", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Builds run for minutes in a background task; asyncio only holds a weak
@@ -82,9 +120,51 @@ async def _read_device_state(device: devices.Device) -> dict:
     }
 
 
+async def compute_zone_state(zone: zones.Zone) -> dict:
+    """OR-logic aggregation over a zone's members.
+
+    Shared by the API route and the MQTT publisher, so what Home Assistant
+    receives can never drift from what the dashboard shows.
+    """
+    members = []
+    occupied = False
+    any_available = False
+    for device_id in zone.device_ids:
+        device = devices.get_device(device_id)
+        if device is None:
+            members.append({"device_id": device_id, "name": None, "available": False, "motion": None})
+            continue
+        state = await _read_device_state(device)
+        if state.get("available"):
+            any_available = True
+            if state.get("motion"):
+                occupied = True
+        members.append(
+            {
+                "device_id": device_id,
+                "name": device.config.friendly_name or device.config.name,
+                **state,
+            }
+        )
+    return {"occupied": occupied, "available": any_available, "members": members}
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/mqtt/status")
+def api_mqtt_status() -> dict:
+    return mqtt_bridge.bridge.status()
+
+
+@app.get("/api/presets")
+def api_presets() -> dict:
+    return {
+        "presets": presets.as_dicts(),
+        "kb_per_second_per_pps": presets.KB_PER_SECOND_PER_PPS,
+    }
 
 
 @app.get("/api/esphome/version")
@@ -326,6 +406,9 @@ def api_update_zone(zone_id: str, payload: dict) -> dict:
 def api_delete_zone(zone_id: str) -> None:
     if not zones.delete_zone(zone_id):
         raise HTTPException(status_code=404, detail="Zone nicht gefunden")
+    # Retract the discovery message too, or the entity lingers in Home
+    # Assistant as "unavailable" forever.
+    mqtt_bridge.bridge.forget_zone(zone_id)
 
 
 @app.get("/api/zones/{zone_id}/state")
@@ -333,28 +416,7 @@ async def api_zone_state(zone_id: str) -> dict:
     zone = zones.get_zone(zone_id)
     if zone is None:
         raise HTTPException(status_code=404, detail="Zone nicht gefunden")
-
-    members = []
-    occupied = False
-    any_available = False
-    for device_id in zone.device_ids:
-        device = devices.get_device(device_id)
-        if device is None:
-            members.append({"device_id": device_id, "name": None, "available": False, "motion": None})
-            continue
-        state = await _read_device_state(device)
-        if state.get("available"):
-            any_available = True
-            if state.get("motion"):
-                occupied = True
-        members.append(
-            {
-                "device_id": device_id,
-                "name": device.config.friendly_name or device.config.name,
-                **state,
-            }
-        )
-    return {"occupied": occupied, "available": any_available, "members": members}
+    return await compute_zone_state(zone)
 
 
 @app.get("/", response_class=HTMLResponse)

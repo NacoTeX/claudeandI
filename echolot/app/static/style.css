@@ -179,9 +179,11 @@ header h1 {
   color: var(--faint);
 }
 
+/* Wider minimum than the device grid: with four status cards this settles
+   into an even 2x2 instead of an awkward 3 + 1. */
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }
@@ -244,6 +246,34 @@ h2 {
   margin: -0.25rem 0 1.1rem;
   max-width: 62ch;
 }
+
+/* Secondary line under a status value or form field. */
+.card-note,
+.field-note {
+  color: var(--faint);
+  font-weight: 400;
+}
+
+.card-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.field-note {
+  font-size: 0.72rem;
+  min-height: 1em;
+}
+
+/* The preset picker steers the four fields below it, so it gets the full
+   width and sits apart from them. */
+.preset-label {
+  grid-column: 1 / -1;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.preset-label select { max-width: 22rem; }
 
 .roadmap h2 {
   font-size: 0.75rem;

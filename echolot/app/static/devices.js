@@ -24,6 +24,62 @@ async function loadBoards() {
   }
 }
 
+let kbPerPps = 0.09; // vom Backend überschrieben
+
+// Voreinstellungen ersparen es, vier Parameter mit nicht offensichtlichen
+// Wechselwirkungen von Hand zu treffen.
+async function loadPresets() {
+  const select = document.getElementById("preset-select");
+  const description = document.getElementById("preset-description");
+  const form = document.getElementById("device-form");
+  let data;
+  try {
+    data = await (await fetch("api/presets")).json();
+  } catch (err) {
+    return;
+  }
+  kbPerPps = data.kb_per_second_per_pps;
+  updateRateEstimate();
+
+  for (const p of data.presets) {
+    const opt = document.createElement("option");
+    opt.value = p.key;
+    opt.textContent = p.label;
+    select.appendChild(opt);
+  }
+  select.value = "balanced";
+  const apply = () => {
+    const preset = data.presets.find((p) => p.key === select.value);
+    description.textContent = preset ? preset.description : "";
+    if (!preset) return;
+    form.elements.traffic_generator_rate.value = preset.traffic_generator_rate;
+    form.elements.detection_algorithm.value = preset.detection_algorithm;
+    form.elements.segmentation_threshold.value = preset.segmentation_threshold;
+    updateRateEstimate();
+  };
+  select.addEventListener("change", apply);
+  apply();
+
+  // Wer die Werte selbst anfasst, verlässt die Voreinstellung.
+  for (const name of ["traffic_generator_rate", "detection_algorithm", "segmentation_threshold"]) {
+    form.elements[name].addEventListener("input", () => {
+      select.value = "";
+      description.textContent = "";
+    });
+  }
+  form.elements.traffic_generator_rate.addEventListener("input", updateRateEstimate);
+}
+
+function updateRateEstimate() {
+  const el = document.getElementById("rate-estimate");
+  const rate = Number(document.getElementById("device-form").elements.traffic_generator_rate.value);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    el.textContent = rate === 0 ? "kein eigener Funkverkehr (externe Quelle nötig)" : "";
+    return;
+  }
+  el.textContent = `≈ ${(rate * kbPerPps).toFixed(1)} KB/s Funklast pro Gerät`;
+}
+
 function statusLabel(status) {
   return { idle: "nicht gebaut", queued: "in Warteschlange…", running: "wird gebaut…", success: "bereit zum Flashen", error: "Build fehlgeschlagen" }[status] || status;
 }
@@ -314,5 +370,6 @@ document.getElementById("device-form").addEventListener("submit", async (evt) =>
 });
 
 loadBoards();
+loadPresets();
 loadDevices();
 setInterval(refreshAllLiveStates, 5000);

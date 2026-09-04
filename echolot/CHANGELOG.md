@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.9.0
+
+Phase 5 — the last planned phase.
+
+- **Zones are published to Home Assistant as occupancy sensors** over MQTT
+  discovery. Until now a zone existed only inside this add-on: visible in
+  its dashboard, but unusable in an automation, on a Home Assistant
+  dashboard, or in HomeKit. Each zone now appears as its own
+  `binary_sensor` with device class *occupancy*. Deleting a zone retracts
+  the discovery message so the entity disappears instead of lingering as
+  unavailable, and an unreachable zone publishes nothing rather than a
+  confident "clear". Broker credentials come from the Supervisor
+  (`services: mqtt:want`), so nothing needs configuring alongside the
+  Mosquitto add-on — and without a broker everything else still works.
+  Opt out with `mqtt_export: false`.
+- **Native Matter was deliberately not implemented.** Matter commissioning
+  inside an add-on is a large, fragile undertaking, and once a zone is a
+  Home Assistant entity, HA's own HomeKit and Matter bridges export it.
+  Publishing entities is the smaller and more reliable path to the same
+  goal.
+- **Radio-load estimation.** Each device probes the air continuously, so
+  its packet rate is a real cost. The device form estimates it per device
+  and the overview sums it across all of them, using ESPectre's own
+  figure of roughly 9 KB/s at 100 packets/s.
+- **Presets** — *Ausgewogen*, *Sparsam*, *Empfindlich*, *Ohne
+  Kalibrierung* — replace guessing at four interacting parameters.
+  Editing any value drops back to custom.
+- Fix: the MQTT publish task kept running after shutdown. Startup and
+  shutdown now use FastAPI's `lifespan`, which cancels it properly.
+
 ## 0.8.0
 
 - **Renamed from "ESPectre Hub" to "Echolot".** The old name was both dull

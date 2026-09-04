@@ -45,8 +45,12 @@ for add-on installation instructions.
       implemented against ESPectre's documented BLE game-client protocol,
       but not exercised against real hardware (no BLE-capable
       browser/device in this environment).
-- [ ] **Phase 5 — Polish.** Airtime estimation, presets, optional Matter
-      export.
+- [x] **Phase 5 — Polish.** Traffic-load estimation (per device and in
+      total), parameter presets, and zones published to Home Assistant as
+      occupancy sensors over MQTT discovery. Native Matter was deliberately
+      not implemented: once a zone is a Home Assistant entity, HA's own
+      HomeKit and Matter bridges export it, which is a far smaller and more
+      reliable path than doing Matter commissioning in here.
 
 ## Installing this add-on repository
 
