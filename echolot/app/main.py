@@ -191,6 +191,7 @@ def list_boards() -> list[dict]:
             "key": b.key,
             "label": b.label,
             "chip_family": b.chip_family,
+            "ble": b.ble,
             "experimental": b.experimental,
         }
         for b in BOARDS.values()
