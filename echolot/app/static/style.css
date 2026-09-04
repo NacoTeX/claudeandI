@@ -883,3 +883,86 @@ esp-web-install-button { display: inline-flex; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Eine Zone, die nur noch durch ihre Haltezeit belegt ist, darf nicht
+   aussehen wie eine, die gerade jemanden sieht — sonst lässt sich die
+   Abstimmung nicht beurteilen. Warnfarbe statt Grün, plus ein
+   Pulsieren, das den laufenden Countdown andeutet. */
+.tile-dot-holding {
+  background: var(--warn);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 20%, transparent);
+  animation: hold-pulse 2s var(--ease) infinite;
+}
+
+@keyframes hold-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-dot-holding { animation: none; }
+}
+
+/* Abstimmungswerte einer Zone: lesbar, aber leiser als die Mitglieds-Chips,
+   damit die Karte weiterhin von den Geräten handelt. */
+.zone-tuning {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+}
+
+.chip-quiet {
+  font-size: 0.73rem;
+  opacity: 0.75;
+}
+
+/* Feinabstimmung im Zonenformular. #zone-form ist einspaltig, damit der
+   Geräte-Picker Platz hat — die drei Zahlenfelder brauchen darin aber
+   keine volle Breite, sonst steht ein 22rem breites Namensfeld neben
+   armlangen Zahleneingaben. */
+.tuning {
+  margin-block: 0.2rem 0.4rem;
+  /* Grid-Items haben als Mindestbreite `auto`, also die Breite ihres
+     Inhalts — ohne dies wächst die Feinabstimmung auf schmalen Displays
+     über die Karte hinaus, statt umzubrechen. */
+  min-width: 0;
+}
+
+.tuning .hint {
+  margin-top: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.tuning-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem 1.25rem;
+  max-width: 46rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.tuning-fields > label { min-width: 0; }
+
+/* Die beiden Schwellwerte gehören zusammen und müssen nebeneinander
+   stehen — also bekommt die Haltezeit davor eine eigene Zeile, statt
+   sich einen Umbruch mit ihnen zu teilen. Das Eingabefeld behält dabei
+   die Breite der anderen, nur der Erklärtext darf länger laufen. */
+.tuning-fields > label:first-child {
+  grid-column: 1 / -1;
+}
+
+.tuning-fields > label:first-child input {
+  max-width: 15rem;
+}
+
+/* Die Erklärtexte sind Teil des Labels und erben dessen Spaltenfluss;
+   sie brauchen nur eigene Größe, Farbe und etwas Luft nach oben. */
+.field-hint {
+  font-size: 0.76rem;
+  color: var(--muted);
+  line-height: 1.45;
+  font-weight: 400;
+  margin-top: 0.1rem;
+}

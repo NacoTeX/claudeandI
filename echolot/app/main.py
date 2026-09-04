@@ -14,6 +14,7 @@ import asyncio
 import logging
 import os
 import subprocess
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -23,7 +24,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
-from app import builder, devices, ha_client, mqtt_bridge, presets, zones
+from app import builder, devices, ha_client, mqtt_bridge, presets, zone_logic, zones
 from app.board_registry import BOARDS
 
 logging.basicConfig(level=logging.INFO)
@@ -47,7 +48,7 @@ async def lifespan(_app: FastAPI):
         try:
             await mqtt_bridge.bridge.start()
             task = asyncio.create_task(
-                mqtt_bridge.publish_loop(compute_zone_state, zones.list_zones)
+                mqtt_bridge.publish_loop(compute_zone_state, zones.list_zones, forget_zone_runtime)
             )
         except mqtt_bridge.MqttUnavailable as err:
             # Entirely normal without the Mosquitto add-on; everything else
@@ -120,15 +121,29 @@ async def _read_device_state(device: devices.Device) -> dict:
     }
 
 
+#: Per-zone state-machine memory. Zones are few and short-lived compared
+#: to the process, and a forgotten entry only costs a dict slot, but a
+#: deleted zone should not keep its hold running if the id is reused.
+_zone_runtimes: dict[str, zone_logic.ZoneRuntime] = {}
+
+
+def forget_zone_runtime(zone_id: str) -> None:
+    _zone_runtimes.pop(zone_id, None)
+
+
 async def compute_zone_state(zone: zones.Zone) -> dict:
-    """OR-logic aggregation over a zone's members.
+    """Aggregate a zone's members and run its presence state machine.
 
     Shared by the API route and the MQTT publisher, so what Home Assistant
-    receives can never drift from what the dashboard shows.
+    receives can never drift from what the dashboard shows. The raw
+    aggregation is still OR over the members — any device seeing movement
+    means the zone sees movement — but hysteresis and hold time now sit
+    between that and the published `occupied` flag (see zone_logic).
     """
     members = []
-    occupied = False
+    raw_motion = False
     any_available = False
+    best_score: float | None = None
     for device_id in zone.device_ids:
         device = devices.get_device(device_id)
         if device is None:
@@ -138,7 +153,10 @@ async def compute_zone_state(zone: zones.Zone) -> dict:
         if state.get("available"):
             any_available = True
             if state.get("motion"):
-                occupied = True
+                raw_motion = True
+            score = state.get("movement_score")
+            if score is not None and (best_score is None or score > best_score):
+                best_score = score
         members.append(
             {
                 "device_id": device_id,
@@ -146,7 +164,18 @@ async def compute_zone_state(zone: zones.Zone) -> dict:
                 **state,
             }
         )
-    return {"occupied": occupied, "available": any_available, "members": members}
+
+    runtime = _zone_runtimes.setdefault(zone.id, zone_logic.ZoneRuntime())
+    verdict = zone_logic.evaluate(
+        runtime,
+        motion=raw_motion,
+        score=best_score,
+        enter_threshold=zone.enter_threshold,
+        exit_threshold=zone.exit_threshold,
+        hold_seconds=zone.hold_seconds,
+        now=time.monotonic(),
+    )
+    return {"available": any_available, "members": members, **verdict}
 
 
 @app.get("/api/health")
@@ -398,7 +427,12 @@ def api_update_zone(zone_id: str, payload: dict) -> dict:
         unknown = [d for d in patch.device_ids if devices.get_device(d) is None]
         if unknown:
             raise HTTPException(status_code=422, detail=f"Unbekannte Geräte-ID(s): {', '.join(unknown)}")
-    zone.apply_update(patch)
+    try:
+        # apply_update re-validates the merged zone, so a patch that only
+        # moves one threshold can still break the enter/exit invariant.
+        zone.apply_update(patch)
+    except ValidationError as err:
+        raise HTTPException(status_code=422, detail=_validation_detail(err)) from err
     zones.save_zone(zone)
     return zone.model_dump()
 
@@ -410,6 +444,7 @@ def api_delete_zone(zone_id: str) -> None:
     # Retract the discovery message too, or the entity lingers in Home
     # Assistant as "unavailable" forever.
     mqtt_bridge.bridge.forget_zone(zone_id)
+    forget_zone_runtime(zone_id)
 
 
 @app.get("/api/zones/{zone_id}/state")

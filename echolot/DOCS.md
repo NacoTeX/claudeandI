@@ -68,10 +68,32 @@ tab, not a Zones-tab control.
 ### Zones
 
 The **Zones** tab groups devices and reports "occupied" when *any*
-member device currently detects motion (OR-logic — the simplest form of
-the zone/topology aggregation TOMMY offers). Create a zone, tick which
-devices belong to it, and its card polls live state the same way device
-cards do.
+member device currently detects motion. Create a zone, tick which devices
+belong to it, and its card polls live state the same way device cards do.
+
+Raw OR-logic reacts instantly but also drops out instantly: CSI movement
+scores are noisy, and someone sitting still for two seconds turns the
+zone off and straight back on. Two settings under **Feinabstimmung** (in
+the create form, or the *Abstimmen* button on an existing zone) fix that:
+
+| Setting | Effect |
+| --- | --- |
+| **Haltezeit** | Seconds the zone stays occupied after the last movement. `0` disables it. 60–180 s is a sensible range for lighting. |
+| **Einschalt-Schwellwert** | Movement score at which the zone switches on. Leave empty to keep trusting each device's own on-device threshold. |
+| **Ausschalt-Schwellwert** | A *lower* second value creates hysteresis: between the two the zone keeps whatever state it had, so it cannot flicker on the boundary. Only meaningful together with an enter threshold. |
+
+A zone therefore has three states rather than two. `detected` means a
+device is seeing movement right now; `holding` means nothing is moving
+but the hold time has not run out, so the zone is still occupied; `clear`
+means neither. Both zone cards and dashboard tiles show the remaining
+hold time as a countdown, so a well-tuned zone reads as deliberate rather
+than as a stuck sensor. Only `detected` and `holding` publish as
+"occupied" — to the API, to the dashboard, and to Home Assistant over
+MQTT, all from the same code path.
+
+Score-based detection uses the highest movement score across the zone's
+members. A member with no movement-score entity falls back to its plain
+motion sensor, so mixing tuned and untuned devices in one zone works.
 
 ### Dashboard
 

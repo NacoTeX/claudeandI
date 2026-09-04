@@ -1,6 +1,39 @@
-// Zonen: Geräte gruppieren, Präsenz per ODER-Verknüpfung (Phase 3).
+// Zonen: Geräte gruppieren und die Präsenz-Logik der Zone abstimmen.
+//
+// Die Rohaggregation ist weiterhin ODER über die Mitglieder; Haltezeit und
+// Hysterese sitzen im Backend dahinter (app/zone_logic.py). Hier geht es
+// nur darum, sie einstellbar und ihren Zustand sichtbar zu machen.
 //
 // Alle API-Pfade sind relativ (ohne führenden Slash) — siehe app.js.
+
+// Leere Zahlenfelder heißen "nicht gesetzt", nicht "0". Ein leeres Feld als
+// 0 zu senden würde eine Schwelle setzen, die alles durchlässt.
+function numberOrNull(input) {
+  const raw = input.value.trim();
+  return raw === "" ? null : Number(raw);
+}
+
+function formatHold(seconds) {
+  if (seconds >= 60) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return s ? `${m} min ${s} s` : `${m} min`;
+  }
+  return `${Math.round(seconds)} s`;
+}
+
+function tuningSummary(zone) {
+  const parts = [];
+  if (zone.hold_seconds > 0) parts.push(`Haltezeit ${formatHold(zone.hold_seconds)}`);
+  if (zone.enter_threshold !== null && zone.enter_threshold !== undefined) {
+    parts.push(
+      zone.exit_threshold !== null && zone.exit_threshold !== undefined
+        ? `Schwelle ${zone.enter_threshold} / ${zone.exit_threshold}`
+        : `Schwelle ${zone.enter_threshold}`
+    );
+  }
+  return parts;
+}
 
 async function loadZoneDevicePicker() {
   const picker = document.getElementById("zone-device-picker");
@@ -29,6 +62,11 @@ function renderZone(zone) {
     ? zone.device_ids.map((id) => `<span class="chip" data-member="${id}">…</span>`).join("")
     : '<span class="status status-pending">Keine Geräte in dieser Zone</span>';
 
+  const tuning = tuningSummary(zone);
+  const tuningRow = tuning.length
+    ? `<div class="zone-tuning">${tuning.map((t) => `<span class="chip chip-quiet">${escapeHtml(t)}</span>`).join("")}</div>`
+    : "";
+
   return `
     <div class="card zone-card" data-id="${zone.id}">
       <div class="device-card-header">
@@ -36,7 +74,9 @@ function renderZone(zone) {
         <span class="status status-pending zone-status" data-zone-status="${zone.id}">wird geprüft…</span>
       </div>
       <div class="zone-members">${memberChips}</div>
+      ${tuningRow}
       <div class="device-actions">
+        <button class="tune-zone-btn">Abstimmen</button>
         <button class="delete-zone-btn">Löschen</button>
       </div>
     </div>`;
@@ -56,9 +96,11 @@ async function loadZones() {
     ? zoneList.map(renderZone).join("")
     : '<p class="status status-pending">Noch keine Zonen — lege oben eine an.</p>';
 
+  const byId = new Map(zoneList.map((z) => [z.id, z]));
   for (const el of list.querySelectorAll(".zone-card")) {
     const id = el.dataset.id;
     el.querySelector(".delete-zone-btn").addEventListener("click", () => deleteZone(id));
+    el.querySelector(".tune-zone-btn").addEventListener("click", () => tuneZone(byId.get(id)));
     refreshZoneState(id);
   }
 }
@@ -77,6 +119,11 @@ async function refreshZoneState(id) {
 
   if (!state.available) {
     statusEl.textContent = "nicht verfügbar";
+    statusEl.className = "status status-warn zone-status";
+  } else if (state.state === "holding") {
+    // Der Countdown ist der interessante Teil: er erklärt, warum die Zone
+    // noch belegt ist, obwohl gerade nichts mehr gemessen wird.
+    statusEl.textContent = `hält noch ${formatHold(state.hold_remaining)}`;
     statusEl.className = "status status-warn zone-status";
   } else {
     statusEl.textContent = state.occupied ? "belegt" : "frei";
@@ -100,6 +147,60 @@ function refreshAllZoneStates() {
   }
 }
 
+// Abstimmen läuft bewusst über prompt() statt über ein zweites Formular:
+// drei Zahlen, die man selten anfasst, rechtfertigen keinen Dialog-Aufbau
+// samt eigenem Fokus- und Escape-Handling.
+async function tuneZone(zone) {
+  if (!zone) return;
+
+  const holdRaw = prompt(
+    `Haltezeit für „${zone.name}“ in Sekunden.\n\n` +
+      "Wie lange die Zone nach der letzten Bewegung noch als belegt gilt.\n" +
+      "0 schaltet die Haltezeit ab.",
+    String(zone.hold_seconds ?? 0)
+  );
+  if (holdRaw === null) return;
+
+  const enterRaw = prompt(
+    "Einschalt-Schwellwert (leer = Schwelle des Geräts nutzen).",
+    zone.enter_threshold ?? ""
+  );
+  if (enterRaw === null) return;
+
+  let exitRaw = "";
+  if (enterRaw.trim() !== "") {
+    const answer = prompt(
+      "Ausschalt-Schwellwert (leer = gleicher Wert).\n\n" +
+        "Ein niedrigerer Wert erzeugt eine Hysterese — dazwischen behält\n" +
+        "die Zone ihren Zustand und flackert nicht.",
+      zone.exit_threshold ?? ""
+    );
+    if (answer === null) return;
+    exitRaw = answer;
+  }
+
+  const payload = {
+    hold_seconds: Number(holdRaw.trim() || 0),
+    enter_threshold: enterRaw.trim() === "" ? null : Number(enterRaw),
+    exit_threshold: exitRaw.trim() === "" ? null : Number(exitRaw),
+  };
+
+  const res = await fetch(`api/zones/${zone.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const detail = Array.isArray(body.detail)
+      ? body.detail.map((e) => e.msg).join("; ")
+      : body.detail || "Zone konnte nicht abgestimmt werden";
+    alert(detail);
+    return;
+  }
+  await loadZones();
+}
+
 async function deleteZone(id) {
   if (!confirm("Diese Zone löschen?")) return;
   await fetch(`api/zones/${id}`, { method: "DELETE" });
@@ -114,12 +215,19 @@ document.getElementById("zone-form").addEventListener("submit", async (evt) => {
   const form = evt.target;
   const name = form.elements.name.value;
   const device_ids = Array.from(form.querySelectorAll('input[name="device_ids"]:checked')).map((el) => el.value);
+  const payload = {
+    name,
+    device_ids,
+    hold_seconds: Number(form.elements.hold_seconds.value.trim() || 0),
+    enter_threshold: numberOrNull(form.elements.enter_threshold),
+    exit_threshold: numberOrNull(form.elements.exit_threshold),
+  };
 
   try {
     const res = await fetch("api/zones", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, device_ids }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
