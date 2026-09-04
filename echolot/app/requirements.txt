@@ -4,4 +4,6 @@ esphome>=2024.9
 jinja2>=3.1,<4.0
 pydantic>=2.9,<3.0
 httpx>=0.27,<1.0
-paho-mqtt>=2.1,<3.0
+# ESPHome pins paho-mqtt==1.6.1, so this range must admit 1.6.x — the
+# client code below works with both the 1.x and 2.x callback APIs.
+paho-mqtt>=1.6,<3.0
