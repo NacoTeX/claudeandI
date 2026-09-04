@@ -1,5 +1,5 @@
 name: Echolot
-version: "0.10.2"
+version: "0.11.0"
 slug: echolot
 description: >-
   Self-hosted Wi-Fi CSI presence detection hub built on ESPectre — a
@@ -8,7 +8,6 @@ url: "https://github.com/NacoTeX/claudeandI/tree/main/echolot"
 arch:
   - aarch64
   - amd64
-  - armv7
 init: false
 homeassistant_api: true
 # Supervisor API: needed to look up the managed MQTT broker.

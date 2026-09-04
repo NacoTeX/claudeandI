@@ -1,5 +1,15 @@
 configuration:
   log_level:
     name: Log level
-    description: Controls the verbosity of the add-on's own log output.
+    description: >-
+      Controls the verbosity of the add-on's own log output. This does not
+      affect the log level of the firmware on your devices, which is set per
+      device when you create it.
+  mqtt_export:
+    name: Publish zones to Home Assistant
+    description: >-
+      Mirrors each zone to Home Assistant as an occupancy binary_sensor over
+      MQTT discovery. Needs a broker such as the Mosquitto add-on; without
+      one the add-on runs normally and zones stay visible only in this
+      interface.
 network: {}

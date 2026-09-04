@@ -206,7 +206,7 @@ class ZoneBridge:
 bridge = ZoneBridge()
 
 
-async def publish_loop(compute_zone_state, list_zones, on_zone_gone=None, interval: float = 10.0) -> None:
+async def publish_loop(compute_all_zone_states, list_zones, on_zone_gone=None, interval: float = 10.0) -> None:
     """Mirror zone state to MQTT on a timer, independent of the UI.
 
     A zone can also disappear because someone edited zones.json by hand,
@@ -224,8 +224,9 @@ async def publish_loop(compute_zone_state, list_zones, on_zone_gone=None, interv
                     on_zone_gone(gone)
             known = current
 
-            for zone in zones:
-                state = await compute_zone_state(zone)
+            # One call for all zones: it fetches Home Assistant's states
+            # once per tick rather than once per zone per device.
+            for zone, state in await compute_all_zone_states(zones):
                 bridge.publish_zone(
                     zone.id, zone.name, bool(state.get("occupied")), bool(state.get("available"))
                 )

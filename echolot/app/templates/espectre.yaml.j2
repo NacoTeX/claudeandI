@@ -35,20 +35,78 @@ wifi:
 
 captive_portal:
 
+# The key is generated per device and stored by the add-on, which shows it
+# for pasting into Home Assistant. Without it anyone on the network could
+# read the sensor and drive the device.
 api:
+  encryption:
+    key: {{ api_encryption_key | tojson }}
 
+# Password-protected so the same is true of firmware updates.
 ota:
   - platform: esphome
+    password: {{ ota_password | tojson }}
 
 logger:
-  level: INFO
+  level: {{ log_level }}
 
 # Lets Wi-Fi credentials be re-provisioned over USB without a rebuild.
 improv_serial:
+{% if web_server %}
 
-external_components:
-  - source: github://francescopace/espectre@main
-    components: [espectre]
+# A page on the device itself, reachable at http://<ip>/ from any browser
+# — including ones with no Web Serial, such as everything on iPadOS. It is
+# the only way to answer "is this thing alive?" without a USB cable.
+# `local: true` embeds the assets instead of pulling them from a CDN, so
+# the page also works with the device cut off from the internet.
+web_server:
+  version: 3
+  local: true
+{% endif %}
+{% if diagnostics %}
+
+sensor:
+  # Signal strength is not housekeeping here: CSI sensing degrades with a
+  # weak link, so this is the number that tells you whether a spot is a
+  # viable place for the device at all.
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+    entity_category: diagnostic
+  - platform: uptime
+    name: "Uptime"
+    entity_category: diagnostic
+  # Supported on every ESP32 variant we offer, the original included
+  # (it reads an undocumented register there, and reports nothing rather
+  # than nonsense when that fails).
+  - platform: internal_temperature
+    name: "Internal Temperature"
+    entity_category: diagnostic
+
+text_sensor:
+  # The IP address in particular: without it, a device that Home Assistant
+  # has not discovered leaves you guessing at the router's device list.
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      entity_category: diagnostic
+    ssid:
+      name: "Connected SSID"
+      entity_category: diagnostic
+    mac_address:
+      name: "MAC Address"
+      entity_category: diagnostic
+
+button:
+  - platform: restart
+    name: "Restart"
+    entity_category: config
+  # Boots without the ESPectre component, so a device made unreachable by
+  # a bad configuration can still take an OTA update.
+  - platform: safe_mode
+    name: "Restart (Safe Mode)"
+    entity_category: config
+{% endif %}
 {% if board.ble %}
 
 # ESPectre's telemetry/control channel rides on this server; without it
@@ -77,6 +135,10 @@ esp32_ble_server:
           write: true
           write_no_response: true
 {% endif %}
+
+external_components:
+  - source: github://francescopace/espectre@main
+    components: [espectre]
 
 espectre:
   detection_algorithm: {{ detection_algorithm }}

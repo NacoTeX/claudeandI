@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r echolot/app/requirements.txt pytest
+      - name: Run tests
+        run: python -m pytest echolot/tests -q
+
+  firmware-config:
+    name: Firmware config validates for every board
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r echolot/app/requirements.txt
+      # Renders the real template for every board in the registry and runs
+      # `esphome config` over each. Three shipped bugs came from firmware
+      # YAML that was never validated: ota.esp32, cpu_frequency on the C3,
+      # and a missing esp32_ble_server that silently disabled BLE.
+      - name: Validate generated firmware configs
+        run: python echolot/tools/validate_firmware.py
+
+  addon-metadata:
+    name: Add-on metadata is well-formed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyyaml
+      - name: Check config.yaml, build.yaml and repository.yaml
+        run: python echolot/tools/check_metadata.py

@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -96,6 +97,11 @@ def render_yaml(device: Device) -> str:
         traffic_generator_rate=device.config.traffic_generator_rate,
         traffic_generator_mode=device.config.traffic_generator_mode,
         segmentation_threshold=device.config.segmentation_threshold,
+        web_server=device.config.web_server,
+        diagnostics=device.config.diagnostics,
+        log_level=device.config.log_level,
+        api_encryption_key=device.api_encryption_key,
+        ota_password=device.ota_password,
     )
 
 
@@ -152,6 +158,74 @@ def _explain_failure(returncode: int, log: str, board) -> str:
             f"{state['compiler']} vorhanden ist. Sieh ins Build-Log."
         )
     return f"esphome compile exited with code {returncode}"
+
+
+def run_ota(device: Device, address: str) -> None:
+    """Push the already-built firmware to a running device over the network.
+
+    The point of this is the USB cable: flashing a blank chip needs one,
+    but every update after that does not. Browsers without Web Serial —
+    everything on iPadOS — can therefore still keep a device current, since
+    the upload happens here rather than in the browser.
+
+    Runs synchronously; call via a worker thread like run_build.
+    """
+    ddir = device_dir(device.id)
+    device.ota_status = BuildStatus.RUNNING
+    device.ota_error = None
+    device.ota_log = ""
+    save_device(device)
+
+    try:
+        # Re-render first: the config carries the OTA password, and an
+        # edited device must not be pushed with a stale one.
+        config_path(device.id).write_text(render_yaml(device), encoding="utf-8")
+
+        proc = subprocess.run(
+            ["esphome", "upload", str(config_path(device.id)), "--device", address],
+            cwd=ddir,
+            capture_output=True,
+            text=True,
+            timeout=1800,
+        )
+        log = (proc.stdout or "") + (proc.stderr or "")
+        device.ota_log = log[-_LOG_TAIL_CHARS:]
+
+        if proc.returncode != 0:
+            device.ota_status = BuildStatus.ERROR
+            device.ota_error = _explain_ota_failure(proc.returncode, log, address)
+        else:
+            device.ota_status = BuildStatus.SUCCESS
+            device.ota_last_success = time.time()
+        save_device(device)
+    except subprocess.TimeoutExpired:
+        device.ota_status = BuildStatus.ERROR
+        device.ota_error = "Das OTA-Update hat nach 30 Minuten aufgegeben"
+        save_device(device)
+    except Exception as err:  # noqa: BLE001 - surface it instead of killing the worker
+        logger.exception("OTA failed for device %s", device.id)
+        device.ota_status = BuildStatus.ERROR
+        device.ota_error = str(err)
+        save_device(device)
+    finally:
+        _finish_build(device.id)
+
+
+def _explain_ota_failure(returncode: int, log: str, address: str) -> str:
+    """Name the two failures that are not the user's fault to diagnose."""
+    lowered = log.lower()
+    if "bad magic" in lowered or "authentication" in lowered or "password" in lowered:
+        return (
+            "Das Gerät hat das OTA-Passwort abgelehnt. Das passiert, wenn die "
+            "laufende Firmware älter ist als dieses Passwort — dann hilft nur "
+            "einmal Flashen über USB."
+        )
+    if "resolve" in lowered or "not found" in lowered or "no route" in lowered:
+        return (
+            f"„{address}“ ist nicht erreichbar. Prüfe die Adresse — bei einem "
+            ".local-Namen trag stattdessen die IP-Adresse ein."
+        )
+    return f"esphome upload endete mit Code {returncode}"
 
 
 def run_build(device: Device) -> None:
