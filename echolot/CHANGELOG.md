@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.9.3
+
+Firmware configuration is now validated against real ESPHome rather than
+assembled from prose docs, and modelled on ESPectre's own per-board
+example configs.
+
+- Fix: builds failed with `Platform not found: 'ota.esp32'`. No such
+  platform exists — the classic OTA protocol is `platform: esphome`. The
+  wrong value came straight from ESPectre's SETUP.md.
+- Fix: the ESP32-C3 could never have built. `cpu_frequency: 240MHz` was
+  applied to every board, but the C3 and C6 top out lower and ESPHome
+  rejects it outright. The frequency now follows each board's official
+  example (and is simply omitted for C3/C6).
+- **The BLE "Live" view could never have worked.** ESPectre only enables
+  its telemetry channel when the config declares an `esp32_ble_server`,
+  and ours didn't — `ble_channel_enabled` resolved to `false`. The
+  generated firmware now includes that server (with the UUIDs the
+  browser client expects) on every BLE-capable board, and
+  `ble_channel_enabled` comes out `true`.
+- Board id and framework version are no longer pinned, which is what
+  produced the "not the recommended one" warnings on every build.
+- Generated firmware gains a fallback access point and keeps
+  `improv_serial`, so a device whose Wi-Fi credentials stop working can
+  be re-provisioned without a rebuild.
+- Whether a board supports BLE now lives in the board registry alone,
+  feeding both the firmware template and the dashboard's "Live" button;
+  the frontend previously kept its own separate list.
+
+All six supported boards are verified with `esphome config` against
+ESPHome 2026.6.5 and the real ESPectre component: all valid, BLE server
+present on every board except the S2, which has no Bluetooth.
+
 ## 0.9.2
 
 - Fix: on phones the page was wider than the screen and scrolled

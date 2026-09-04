@@ -18,9 +18,6 @@ const BLE_TELEMETRY_UUID = "119d5cac-48da-4bd9-bfc3-169805868258";
 const BLE_SYSINFO_UUID = "c8c89ffa-c401-461f-9ffc-942fa04adfe3";
 const BLE_CONTROL_UUID = "33ed9214-a8d7-40e8-82d1-c82747dcdc71";
 
-// Chips ESPectre's BLE channel supports (S2 and H2 are excluded upstream).
-const BLE_CAPABLE_CHIP_FAMILIES = new Set(["ESP32", "ESP32-C3", "ESP32-C5", "ESP32-C6", "ESP32-S3"]);
-
 const POLL_MS = 5000;
 const HISTORY_MINUTES = 30;
 const MAX_POINTS = 400;
@@ -155,7 +152,9 @@ function relativeTime(ms) {
 function renderDeviceTile(device, boardsByKey, zoneNamesByDevice) {
   const c = device.config;
   const board = boardsByKey[c.board];
-  const bleCapable = board && BLE_CAPABLE_CHIP_FAMILIES.has(board.chip_family);
+  // Comes from the board registry, which also decides whether the
+  // firmware gets a BLE server at all — one source, no drift.
+  const bleCapable = Boolean(board && board.ble);
   const zoneNames = zoneNamesByDevice[device.id] || [];
 
   if (device.status !== "success") {
