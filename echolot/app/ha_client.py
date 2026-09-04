@@ -48,6 +48,24 @@ async def get_state(entity_id: str) -> dict | None:
     return resp.json()
 
 
+async def list_states() -> list[dict]:
+    """Every entity Home Assistant currently knows about.
+
+    Used to find a device's entities by what Home Assistant actually named
+    them, instead of predicting the name and being wrong.
+    """
+    headers = _headers()
+    try:
+        async with httpx.AsyncClient(base_url=_base_url(), timeout=15.0) as client:
+            resp = await client.get("/states", headers=headers)
+    except httpx.HTTPError as err:
+        raise HomeAssistantUnavailable(str(err)) from err
+    if resp.status_code != 200:
+        raise HomeAssistantUnavailable(f"GET /states -> {resp.status_code}")
+    payload = resp.json()
+    return payload if isinstance(payload, list) else []
+
+
 async def get_history(entity_id: str, minutes: int) -> list[dict]:
     """Past states for one entity, oldest first.
 

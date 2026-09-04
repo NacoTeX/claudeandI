@@ -24,7 +24,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
-from app import builder, devices, ha_client, mqtt_bridge, presets, zone_logic, zones
+from app import builder, devices, entity_resolver, ha_client, mqtt_bridge, presets, zone_logic, zones
 from app.board_registry import BOARDS
 
 logging.basicConfig(level=logging.INFO)
@@ -102,17 +102,50 @@ def _parse_ts(value) -> float | None:
         return None
 
 
-async def _read_device_state(device: devices.Device) -> dict:
+async def _autodetect_entities(device: devices.Device) -> bool:
+    """Ask Home Assistant what it named this device's entities, and save that.
+
+    Called once when the configured motion entity turns out not to exist.
+    A flashed device that Home Assistant has adopted under a name we did
+    not predict is the common case; without this the device would sit at
+    "nicht verfügbar" forever with a perfectly working sensor behind it.
+    """
+    try:
+        states = await ha_client.list_states()
+    except ha_client.HomeAssistantUnavailable:
+        return False
+    found = entity_resolver.resolve(device, states)
+    if not found:
+        return False
+    for field, entity_id in found.items():
+        setattr(device, field, entity_id)
+    devices.save_device(device)
+    logger.info("Entities für %s erkannt: %s", device.config.name, found)
+    return True
+
+
+async def _read_device_state(device: devices.Device, allow_detect: bool = True) -> dict:
     if not device.entity_motion:
         return {"available": False, "error": "Für dieses Gerät ist keine Bewegungs-Entity konfiguriert"}
     try:
         motion = await ha_client.get_state(device.entity_motion)
+        if motion is None and allow_detect and await _autodetect_entities(device):
+            # Entities were just relearned — read once more before giving up.
+            return await _read_device_state(device, allow_detect=False)
         score = await ha_client.get_state(device.entity_movement_score) if device.entity_movement_score else None
         threshold = await ha_client.get_state(device.entity_threshold) if device.entity_threshold else None
     except ha_client.HomeAssistantUnavailable as err:
         return {"available": False, "error": str(err)}
     if motion is None:
-        return {"available": False, "error": f"Entity {device.entity_motion} in Home Assistant nicht gefunden"}
+        return {
+            "available": False,
+            "error": (
+                f"Entity {device.entity_motion} existiert in Home Assistant nicht. "
+                "Wurde das Gerät dort schon hinzugefügt? Einstellungen → Geräte & "
+                "Dienste → Integrationen, dort sollte ESPHome das Gerät zur "
+                "Einrichtung anbieten."
+            ),
+        }
     return {
         "available": True,
         "motion": motion["state"] == "on",
@@ -336,6 +369,39 @@ async def api_calibrate_device(device_id: str) -> dict:
     except ha_client.HomeAssistantUnavailable as err:
         raise HTTPException(status_code=502, detail=f"Home Assistant nicht erreichbar: {err}") from err
     return {"status": "ok"}
+
+
+@app.post("/api/devices/{device_id}/entities/detect")
+async def api_detect_entities(device_id: str) -> dict:
+    """Re-learn this device's entity ids from Home Assistant.
+
+    The same lookup the state reader does on its own, exposed so a device
+    that was flashed before this existed can be repaired without deleting
+    and recreating it.
+    """
+    device = devices.get_device(device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
+    try:
+        states = await ha_client.list_states()
+    except ha_client.HomeAssistantUnavailable as err:
+        raise HTTPException(status_code=503, detail=f"Home Assistant nicht erreichbar: {err}") from err
+
+    found = entity_resolver.resolve(device, states)
+    if not found:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Home Assistant kennt keine Entities für „{entity_resolver.device_display_name(device)}“. "
+                "Prüfe unter Einstellungen → Geräte & Dienste, ob das Gerät als "
+                "ESPHome-Integration hinzugefügt wurde — nach dem Flashen muss es "
+                "dort einmalig bestätigt werden."
+            ),
+        )
+    for field, entity_id in found.items():
+        setattr(device, field, entity_id)
+    devices.save_device(device)
+    return {"detected": found}
 
 
 @app.get("/api/devices/{device_id}/toolchain")

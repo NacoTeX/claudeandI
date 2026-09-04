@@ -10,6 +10,7 @@ import os
 import re
 import threading
 import time
+import unicodedata
 import uuid
 from enum import StrEnum
 from pathlib import Path
@@ -85,14 +86,28 @@ class DeviceCreate(BaseModel):
         return v
 
 
-def default_entity_ids(device_name: str) -> dict[str, str]:
-    """Best-guess HA entity ids for the entities ESPectre's SETUP.md documents,
-    following ESPHome's default object_id derivation (device name + slugified
-    entity name). Editable per-device since naming can drift — a manual
-    `id:`/`name:` override in the YAML, an entity_id collision suffix HA
-    added, etc.
+def _entity_slug(text: str) -> str:
+    """Home Assistant's entity-id slug, near enough for a first guess."""
+    decomposed = unicodedata.normalize("NFKD", text.lower())
+    stripped = decomposed.encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "_", stripped).strip("_")
+
+
+def default_entity_ids(device_name: str, friendly_name: str | None = None) -> dict[str, str]:
+    """Opening guess at the entity ids Home Assistant will create.
+
+    Home Assistant builds an ESPHome entity id from the *device* name plus
+    the entity name, and the device name is the config's `friendly_name`
+    when there is one — not the node name. Guessing from the node name
+    left every device with a friendly name looking permanently
+    unavailable.
+
+    This is only a starting value written at create time, before the
+    device has even been flashed. Once it is running,
+    app/entity_resolver.py replaces these with what Home Assistant
+    actually named the entities.
     """
-    slug = device_name.replace("-", "_")
+    slug = _entity_slug(friendly_name or device_name)
     return {
         "entity_motion": f"binary_sensor.{slug}_motion_detected",
         "entity_movement_score": f"sensor.{slug}_movement_score",
@@ -173,7 +188,7 @@ def create_device(payload: DeviceCreate) -> Device:
         created_at=now,
         updated_at=now,
         config=payload,
-        **default_entity_ids(payload.name),
+        **default_entity_ids(payload.name, payload.friendly_name),
     )
     with _lock:
         index = _read_index()

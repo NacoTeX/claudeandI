@@ -95,6 +95,30 @@ Score-based detection uses the highest movement score across the zone's
 members. A member with no movement-score entity falls back to its plain
 motion sensor, so mixing tuned and untuned devices in one zone works.
 
+### Wenn ein Gerät nach dem Flashen „nicht verfügbar" bleibt
+
+Flashing puts the firmware on the chip; it does not put the device into
+Home Assistant. Two things have to be true before Echolot can read it:
+
+1. **Home Assistant must have adopted the device.** After the first boot
+   it turns up under Settings → Devices & Services as a discovered ESPHome
+   device and has to be confirmed once. Until then none of its entities
+   exist and Echolot will say so, naming that step.
+2. **Echolot must know the entity ids.** Home Assistant builds them from
+   the *device* name plus the entity name — and the device name is the
+   config's `friendly_name`, not the ESPHome node name. A node `flur` with
+   friendly name "Flur unten" produces
+   `binary_sensor.flur_unten_motion_detected`.
+
+Echolot no longer predicts those ids and hopes. When the configured entity
+turns out not to exist it asks Home Assistant what the device's entities
+are actually called, matching on the `friendly_name` attribute Home
+Assistant sets ("Flur unten Motion Detected"), and saves the result — so a
+device usually repairs itself on the next state poll. **Entities in Home
+Assistant suchen** on the device card triggers the same lookup by hand,
+and the entity ids stay editable under **HA-Entity-IDs** for the cases
+nothing can infer.
+
 ### Wenn ein Build am Compiler scheitert
 
 A build that ends in

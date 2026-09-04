@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.10.2
+
+A successfully flashed device stayed "nicht verfügbar" forever. The
+firmware and the flash were fine — Echolot was looking for entities under
+names Home Assistant never uses.
+
+- **Entity ids were derived from the ESPHome node name.** Home Assistant
+  builds them from the *device* name plus the entity name, and the device
+  name is the config's `friendly_name` when there is one. A node `flur`
+  with friendly name "Flur unten" produces
+  `binary_sensor.flur_unten_motion_detected`, while Echolot looked for
+  `binary_sensor.flur_motion_detected`. Every device with a friendly name
+  was affected — which the device form actively encourages.
+- Echolot now **asks Home Assistant what the entities are called** instead
+  of predicting them, matching on the `friendly_name` attribute Home
+  Assistant sets. The lookup runs automatically when a configured entity
+  turns out to be missing, so existing broken devices repair themselves on
+  the next poll; **Entities in Home Assistant suchen** on the device card
+  triggers it by hand.
+- Matching on the stated name rather than a predicted id also survives
+  Home Assistant's `_2` collision suffix and its umlaut transliteration
+  ("Küche" → `kuche`), neither of which a prediction could get right
+  reliably.
+- The "nicht verfügbar" message now names the other likely cause: after
+  flashing, the device still has to be confirmed once under Settings →
+  Devices & Services before any of its entities exist.
+- `tests/test_entity_resolver.py` covers the naming cases against Home
+  Assistant's real `/api/states` shape, including that one device never
+  claims another's `_motion_detected`.
+
 ## 0.10.1
 
 Firmware builds could fail with a bare CMake error naming a compiler that
