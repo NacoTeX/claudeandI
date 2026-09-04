@@ -14,6 +14,18 @@ else
     export ECHOLOT_MQTT_EXPORT="true"
 fi
 
+# PlatformIO defaults its cache to ~/.platformio, which lives in the
+# container's writable layer and is therefore thrown away on every add-on
+# restart or update. That means re-downloading roughly 2 GB of ESP-IDF and
+# toolchain before each build — and an interrupted download leaves a
+# half-extracted toolchain whose directory exists but holds no compiler,
+# which surfaces much later as a bare CMake error ("riscv32-esp-elf-gcc is
+# not a full path and was not found in the PATH"). /data survives, so the
+# cache belongs there; the official ESPHome add-on does the same.
+export PLATFORMIO_CORE_DIR="/data/platformio"
+mkdir -p "${PLATFORMIO_CORE_DIR}"
+bashio::log.info "PlatformIO cache: ${PLATFORMIO_CORE_DIR}"
+
 cd /opt/echolot || bashio::exit.nok "Could not find app directory"
 
 exec python3 -m uvicorn app.main:app \

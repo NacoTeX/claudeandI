@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.10.1
+
+Firmware builds could fail with a bare CMake error naming a compiler that
+was never installed. Two causes, both fixed.
+
+- The PlatformIO cache now lives in `/data/platformio` instead of
+  `~/.platformio`. The default sits in the container's writable layer, so
+  every add-on restart or update threw away ~2 GB of ESP-IDF and toolchain
+  and re-downloaded it on the next build — and every one of those
+  downloads was another chance to be interrupted. The official ESPHome
+  add-on keeps its cache the same way.
+- An interrupted download leaves the toolchain *directory* in place with
+  no compiler inside. PlatformIO's own guard checks only that the
+  directory exists before putting its `bin/` on `PATH`, so the build got
+  as far as CMake before failing on `riscv32-esp-elf-gcc ... not found in
+  the PATH`, with nothing pointing back at the cause. Echolot now checks
+  for the compiler itself, distinguishes "not installed yet" from
+  "installed but broken", and replaces the opaque error with what actually
+  happened plus a **Toolchain zurücksetzen** button that clears the
+  package for a clean re-fetch.
+- Fix: `run_build` looked up the board outside its `try`, so an unknown
+  board key escaped the handler — the device stayed on "running" forever
+  and its build lock was never released.
+- `tests/test_toolchain.py` builds all three on-disk shapes (absent,
+  broken, ok) for real, and checks that repairing one architecture leaves
+  the other's toolchain alone.
+
 ## 0.10.0
 
 Zones learn to hold. Until now a zone was the plain OR of its members'
