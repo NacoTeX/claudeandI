@@ -11,6 +11,7 @@ re-implementing the ESPHome native API's device encryption ourselves.
 """
 
 import os
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
@@ -22,11 +23,11 @@ class HomeAssistantUnavailable(Exception):
 
 
 def _base_url() -> str:
-    return os.environ.get("ESPECTRE_HUB_HA_BASE_URL", DEFAULT_BASE_URL)
+    return os.environ.get("ECHOLOT_HA_BASE_URL", DEFAULT_BASE_URL)
 
 
 def _headers() -> dict:
-    token = os.environ.get("ESPECTRE_HUB_HA_TOKEN") or os.environ.get("SUPERVISOR_TOKEN")
+    token = os.environ.get("ECHOLOT_HA_TOKEN") or os.environ.get("SUPERVISOR_TOKEN")
     if not token:
         raise HomeAssistantUnavailable("No SUPERVISOR_TOKEN available (homeassistant_api not granted?)")
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
@@ -45,6 +46,35 @@ async def get_state(entity_id: str) -> dict | None:
     if resp.status_code != 200:
         raise HomeAssistantUnavailable(f"GET /states/{entity_id} -> {resp.status_code}")
     return resp.json()
+
+
+async def get_history(entity_id: str, minutes: int) -> list[dict]:
+    """Past states for one entity, oldest first.
+
+    /api/history/period/<start> answers with a list of per-entity lists;
+    `minimal_response` trims the intermediate entries down to state +
+    last_changed, which is all the sparkline needs.
+    """
+    headers = _headers()
+    start = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat()
+    params = {
+        "filter_entity_id": entity_id,
+        "minimal_response": "",
+        "no_attributes": "",
+    }
+    try:
+        async with httpx.AsyncClient(base_url=_base_url(), timeout=10.0) as client:
+            resp = await client.get(f"/history/period/{start}", headers=headers, params=params)
+    except httpx.HTTPError as err:
+        raise HomeAssistantUnavailable(str(err)) from err
+    if resp.status_code != 200:
+        raise HomeAssistantUnavailable(f"GET /history/period -> {resp.status_code}")
+
+    payload = resp.json()
+    if not isinstance(payload, list) or not payload:
+        return []
+    series = payload[0]
+    return series if isinstance(series, list) else []
 
 
 async def call_service(domain: str, service: str, entity_id: str, **extra) -> None:

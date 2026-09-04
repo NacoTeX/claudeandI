@@ -26,14 +26,14 @@ COPY app/requirements.txt /tmp/requirements.txt
 RUN pip install --upgrade pip \
     && pip install -r /tmp/requirements.txt
 
-COPY app /opt/espectre-hub/app
+COPY app /opt/echolot/app
 COPY rootfs /
 
-RUN chmod a+x /etc/s6-overlay/s6-rc.d/espectre-hub/run
+RUN chmod a+x /etc/s6-overlay/s6-rc.d/echolot/run
 
-WORKDIR /opt/espectre-hub
+WORKDIR /opt/echolot
 
 LABEL \
-    io.hass.name="ESPectre Hub" \
+    io.hass.name="Echolot" \
     io.hass.description="Self-hosted Wi-Fi CSI presence detection hub built on ESPectre" \
     io.hass.type="addon"

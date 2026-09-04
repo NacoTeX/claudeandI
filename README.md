@@ -1,4 +1,4 @@
-# ESPectre Hub
+# Echolot
 
 A self-hosted, license-free alternative to [TOMMY](https://www.tommysense.com) —
 a Wi-Fi CSI (Channel State Information) presence detection system for Home
@@ -22,7 +22,7 @@ out of the box, so you get comparable functionality without a license.
 
 ## Project status
 
-This is being built in phases. See [`espectre_hub/DOCS.md`](espectre_hub/DOCS.md)
+This is being built in phases. See [`echolot/DOCS.md`](echolot/DOCS.md)
 for add-on installation instructions.
 
 - [x] **Phase 1 — Add-on skeleton.** HAOS add-on with a Python (FastAPI)
@@ -45,13 +45,17 @@ for add-on installation instructions.
       implemented against ESPectre's documented BLE game-client protocol,
       but not exercised against real hardware (no BLE-capable
       browser/device in this environment).
-- [ ] **Phase 5 — Polish.** Airtime estimation, presets, optional Matter
-      export.
+- [x] **Phase 5 — Polish.** Traffic-load estimation (per device and in
+      total), parameter presets, and zones published to Home Assistant as
+      occupancy sensors over MQTT discovery. Native Matter was deliberately
+      not implemented: once a zone is a Home Assistant entity, HA's own
+      HomeKit and Matter bridges export it, which is a far smaller and more
+      reliable path than doing Matter commissioning in here.
 
 ## Installing this add-on repository
 
 In Home Assistant: **Settings → Add-ons → Add-on Store → ⋮ → Repositories**,
-then add this repository's URL. The **ESPectre Hub** add-on will then be
+then add this repository's URL. The **Echolot** add-on will then be
 available to install.
 
 ## License

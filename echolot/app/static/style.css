@@ -1,4 +1,4 @@
-/* ESPectre Hub — design system.
+/* Echolot — design system.
    Frosted-glass surfaces floating over an atmospheric backdrop. The blur
    only reads as glass if there is something behind it to blur, hence the
    coloured gradient field on <body> rather than a flat fill. */
@@ -179,9 +179,11 @@ header h1 {
   color: var(--faint);
 }
 
+/* Wider minimum than the device grid: with four status cards this settles
+   into an even 2x2 instead of an awkward 3 + 1. */
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }
@@ -203,6 +205,20 @@ header h1 {
   border-radius: 5px;
   padding: 0.05em 0.35em;
   font-size: 0.92em;
+}
+
+/* For asides that are worth stating but shouldn't shout — no glass, no
+   accent edge, just quiet text. */
+.notice-quiet {
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  padding: 0 0 0.25rem;
+  font-size: 0.84rem;
+  color: var(--faint);
+  max-width: 62ch;
 }
 
 /* ---------- Text & status ---------- */
@@ -230,6 +246,34 @@ h2 {
   margin: -0.25rem 0 1.1rem;
   max-width: 62ch;
 }
+
+/* Secondary line under a status value or form field. */
+.card-note,
+.field-note {
+  color: var(--faint);
+  font-weight: 400;
+}
+
+.card-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.field-note {
+  font-size: 0.72rem;
+  min-height: 1em;
+}
+
+/* The preset picker steers the four fields below it, so it gets the full
+   width and sits apart from them. */
+.preset-label {
+  grid-column: 1 / -1;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.preset-label select { max-width: 22rem; }
 
 .roadmap h2 {
   font-size: 0.75rem;
@@ -657,7 +701,72 @@ esp-web-install-button { display: inline-flex; }
   font-size: 1rem;
   font-weight: 620;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+/* Current state, right-aligned against the name. */
+.tile-state {
+  margin-left: auto;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.trace {
+  display: block;
+  width: 100%;
+  height: 56px;
+  margin: 0.85rem 0 0.6rem;
+}
+
+.tile-readout {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  font-size: 0.74rem;
+  color: var(--faint);
+}
+
+.readout-item b {
+  display: block;
+  font-size: 0.98rem;
+  font-weight: 620;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+.readout-threshold b { color: var(--muted); }
+
+.tile-readout .ble-connect-btn {
+  margin-left: auto;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.76rem;
+}
+
+/* A tile fed by BLE gets a subtle accent edge so it's obvious which
+   ones are on the fast path. */
+.tile-live { border-color: var(--accent-line); }
+
+.tile-idle { opacity: 0.72; }
+
+.tile-note {
+  margin: 0.55rem 0 0;
+  font-size: 0.71rem;
+  color: var(--faint);
+  word-break: break-word;
+}
+
+.chip-on {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 550;
+}
+
+.chip-unknown { opacity: 0.55; }
 
 .tile-dot {
   width: 0.6rem;
@@ -694,44 +803,9 @@ esp-web-install-button { display: inline-flex; }
 
 .ble-connect-btn:hover:not(:disabled) { background: var(--accent-line); }
 
-.ble-gauge { margin-top: 0.9rem; }
-
-.gauge-track {
-  height: 8px;
-  border-radius: var(--r-pill);
-  background: var(--glass-well);
-  border: 1px solid var(--hairline);
-  overflow: hidden;
-}
-
-.gauge-fill {
-  height: 100%;
-  width: 0%;
-  border-radius: var(--r-pill);
-  background: var(--faint);
-  transition: width 60ms linear, background 0.3s var(--ease);
-}
-
-.gauge-fill-on { background: var(--ok); }
-
-.gauge-readout {
-  margin: 0.45rem 0 0;
-  font-size: 0.8rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.gauge-sysinfo {
-  margin: 0.3rem 0 0;
-  font-size: 0.71rem;
-  color: var(--faint);
-  word-break: break-word;
-}
-
-.ble-error {
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-}
+/* Zone tiles list their members, so the chips need to sit tighter here
+   than in the roomier Zones tab. */
+.glass-tile .zone-members { margin: 0.8rem 0 0; }
 
 /* ---------- Accessibility ---------- */
 

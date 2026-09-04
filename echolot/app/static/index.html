@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Echolot</title>
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="icon" href="static/icon.svg" type="image/svg+xml">
+  <script type="module" src="static/vendor/esp-web-tools/install-button.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Echolot</h1>
+      <p class="subtitle">WLAN-CSI-Präsenzerkennung, selbst gehostet</p>
+      <nav class="tabs">
+        <button class="tab-btn active" data-tab="overview">Übersicht</button>
+        <button class="tab-btn" data-tab="dashboard">Dashboard</button>
+        <button class="tab-btn" data-tab="devices">Geräte</button>
+        <button class="tab-btn" data-tab="zones">Zonen</button>
+      </nav>
+    </header>
+
+    <section id="tab-overview" class="tab-panel">
+      <section class="cards">
+        <div class="card">
+          <h2>Backend</h2>
+          <p id="health-status" class="status status-pending">wird geprüft…</p>
+        </div>
+        <div class="card">
+          <h2>ESPHome</h2>
+          <p id="esphome-status" class="status status-pending">wird geprüft…</p>
+        </div>
+        <div class="card">
+          <h2>Bestand</h2>
+          <p id="inventory-status" class="status status-pending">…</p>
+          <p id="traffic-estimate" class="card-note" hidden></p>
+        </div>
+        <div class="card">
+          <h2>Zonen in Home Assistant</h2>
+          <p id="mqtt-status" class="status status-pending">wird geprüft…</p>
+          <p id="mqtt-note" class="card-note" hidden></p>
+        </div>
+      </section>
+
+      <section class="roadmap">
+        <h2>Projektstand</h2>
+        <ol>
+          <li class="done">Phase 1 — Add-on-Grundgerüst</li>
+          <li class="done">Phase 2 — Flashen über den Browser</li>
+          <li class="done">Phase 3 — Zonen &amp; Konfiguration</li>
+          <li class="done">Phase 4 — Dashboard / Visualizer</li>
+          <li class="done">Phase 5 — Feinschliff</li>
+        </ol>
+      </section>
+    </section>
+
+    <section id="tab-dashboard" class="tab-panel" hidden>
+      <p class="notice notice-quiet" id="ble-unsupported-notice" hidden>
+        Die Diagramme aktualisieren sich alle paar Sekunden über Home
+        Assistant. Für die direkte Verbindung zum Gerät mit hoher Auflösung
+        wird Web Bluetooth benötigt, das dieser Browser nicht unterstützt —
+        nur Chrome, Edge und Opera können das.
+      </p>
+      <div id="dashboard-grid"></div>
+    </section>
+
+    <section id="tab-devices" class="tab-panel" hidden>
+      <div class="notice">
+        Das Flashen nutzt die Web-Serial-Schnittstelle deines Browsers, die
+        Chrome und Edge nur auf verschlüsselten Seiten (HTTPS) oder auf
+        <code>localhost</code> erlauben. Wenn du diese Ingress-Seite über
+        einfaches HTTP im LAN aufrufst, öffne sie über die HTTPS-Adresse von
+        Home Assistant — oder rufe Echolot direkt unter
+        <code>http://&lt;host&gt;:8099</code> von demselben Rechner aus auf.
+      </div>
+
+      <section class="card">
+        <h2>Gerät anlegen</h2>
+        <form id="device-form" class="device-form">
+          <label class="preset-label">Voreinstellung
+            <select id="preset-select">
+              <option value="">— eigene Werte —</option>
+            </select>
+            <span id="preset-description" class="field-note"></span>
+          </label>
+          <label>Gerätename
+            <input name="name" placeholder="wohnzimmer" pattern="[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?" required>
+          </label>
+          <label>Anzeigename
+            <input name="friendly_name" placeholder="Wohnzimmer">
+          </label>
+          <label>Board
+            <select name="board" id="board-select" required></select>
+          </label>
+          <label>WLAN-Name (SSID)
+            <input name="wifi_ssid" placeholder="dein WLAN" required maxlength="32">
+          </label>
+          <label>WLAN-Passwort
+            <input name="wifi_password" type="password" maxlength="64" placeholder="leer lassen bei offenem Netz">
+          </label>
+          <label>Erkennungsalgorithmus
+            <select name="detection_algorithm">
+              <option value="mvs" selected>mvs (varianzbasiert, Standard)</option>
+              <option value="ml">ml (neuronales Netz, ohne Kalibrierung)</option>
+            </select>
+          </label>
+          <label>Paketrate (Pakete/s)
+            <input name="traffic_generator_rate" type="number" min="0" max="1000" value="100">
+            <span id="rate-estimate" class="field-note"></span>
+          </label>
+          <label>Erkennungsschwelle
+            <input name="segmentation_threshold" value="auto" placeholder="auto, min oder 0.0–10.0">
+          </label>
+          <button type="submit">Gerät anlegen</button>
+        </form>
+        <p id="device-form-error" class="status status-err" hidden></p>
+      </section>
+
+      <section>
+        <h2>Geräte</h2>
+        <p class="hint">
+          Sobald ein Gerät gebaut und geflasht ist, zeigt seine Karte den
+          aktuellen Bewegungszustand und erlaubt es, eine neue Schwelle zu
+          senden oder neu zu kalibrieren. Diese Werte kommen aus Home
+          Assistant über die Entity-IDs unter „HA-Entity-IDs“ — das sind
+          begründete Vermutungen, die du dort anpassen kannst, falls ein
+          Gerät als nicht verfügbar angezeigt wird.
+        </p>
+        <div id="device-list" class="device-list"></div>
+      </section>
+    </section>
+
+    <section id="tab-zones" class="tab-panel" hidden>
+      <section class="card">
+        <h2>Zone anlegen</h2>
+        <form id="zone-form" class="device-form">
+          <label>Zonenname
+            <input name="name" placeholder="Erdgeschoss" required maxlength="64">
+          </label>
+          <label class="zone-devices-label">Geräte
+            <div id="zone-device-picker" class="zone-device-picker"></div>
+          </label>
+          <button type="submit">Zone anlegen</button>
+        </form>
+        <p id="zone-form-error" class="status status-err" hidden></p>
+      </section>
+
+      <section>
+        <h2>Zonen</h2>
+        <p class="hint">
+          Eine Zone gilt als belegt, sobald eines ihrer Geräte Bewegung
+          erkennt (ODER-Verknüpfung) — die einfache Form der Zonen-Logik,
+          die TOMMY als Topologie anbietet.
+        </p>
+        <div id="zone-list" class="device-list"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="static/app.js"></script>
+  <script src="static/devices.js"></script>
+  <script src="static/zones.js"></script>
+  <script src="static/dashboard.js"></script>
+</body>
+</html>

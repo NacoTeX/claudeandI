@@ -10,7 +10,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from app.board_registry import get_board
 from app.devices import BuildStatus, Device, config_path, device_dir, save_device
 
-logger = logging.getLogger("espectre_hub.builder")
+logger = logging.getLogger("echolot.builder")
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 _env = Environment(

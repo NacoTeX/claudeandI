@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.board_registry import get_board
 
-DATA_DIR = Path(os.environ.get("ESPECTRE_HUB_DATA_DIR", "/data"))
+DATA_DIR = Path(os.environ.get("ECHOLOT_DATA_DIR", "/data"))
 DEVICES_DIR = DATA_DIR / "devices"
 INDEX_PATH = DATA_DIR / "devices.json"
 

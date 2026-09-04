@@ -1,4 +1,4 @@
-"""ESPectre Hub backend.
+"""Echolot backend.
 
 Phase 1 established the add-on skeleton (Ingress UI, ESPHome CLI check).
 Phase 2 added device management and browser-based flashing: the backend
@@ -12,7 +12,10 @@ these as HA entities already, so no direct device protocol is needed.
 
 import asyncio
 import logging
+import os
 import subprocess
+from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -20,15 +23,51 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
-from app import builder, devices, ha_client, zones
+from app import builder, devices, ha_client, mqtt_bridge, presets, zones
 from app.board_registry import BOARDS
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("espectre_hub")
+logger = logging.getLogger("echolot")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI(title="ESPectre Hub")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Run the MQTT zone publisher for the lifetime of the server.
+
+    Zones are only useful outside this add-on once they exist as Home
+    Assistant entities, and that mirroring has to keep running whether or
+    not anyone has the dashboard open.
+    """
+    task = None
+    if os.environ.get("ECHOLOT_MQTT_EXPORT", "true").lower() in ("0", "false", "no"):
+        logger.info("MQTT export disabled by configuration")
+    else:
+        try:
+            await mqtt_bridge.bridge.start()
+            task = asyncio.create_task(
+                mqtt_bridge.publish_loop(compute_zone_state, zones.list_zones)
+            )
+        except mqtt_bridge.MqttUnavailable as err:
+            # Entirely normal without the Mosquitto add-on; everything else
+            # keeps working, the zones just stay local to this UI.
+            logger.info("MQTT export inactive: %s", err)
+            mqtt_bridge.bridge.error = str(err)
+
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        mqtt_bridge.bridge.stop()
+
+
+app = FastAPI(title="Echolot", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Builds run for minutes in a background task; asyncio only holds a weak
@@ -51,9 +90,20 @@ def _safe_float(value) -> float | None:
         return None
 
 
+def _parse_ts(value) -> float | None:
+    """ISO-8601 timestamp -> epoch seconds. HA emits a trailing 'Z' that
+    fromisoformat only learned to accept in 3.11+, so normalise it."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
 async def _read_device_state(device: devices.Device) -> dict:
     if not device.entity_motion:
-        return {"available": False, "error": "No motion entity configured for this device"}
+        return {"available": False, "error": "Für dieses Gerät ist keine Bewegungs-Entity konfiguriert"}
     try:
         motion = await ha_client.get_state(device.entity_motion)
         score = await ha_client.get_state(device.entity_movement_score) if device.entity_movement_score else None
@@ -61,7 +111,7 @@ async def _read_device_state(device: devices.Device) -> dict:
     except ha_client.HomeAssistantUnavailable as err:
         return {"available": False, "error": str(err)}
     if motion is None:
-        return {"available": False, "error": f"Entity {device.entity_motion} not found in Home Assistant"}
+        return {"available": False, "error": f"Entity {device.entity_motion} in Home Assistant nicht gefunden"}
     return {
         "available": True,
         "motion": motion["state"] == "on",
@@ -70,9 +120,51 @@ async def _read_device_state(device: devices.Device) -> dict:
     }
 
 
+async def compute_zone_state(zone: zones.Zone) -> dict:
+    """OR-logic aggregation over a zone's members.
+
+    Shared by the API route and the MQTT publisher, so what Home Assistant
+    receives can never drift from what the dashboard shows.
+    """
+    members = []
+    occupied = False
+    any_available = False
+    for device_id in zone.device_ids:
+        device = devices.get_device(device_id)
+        if device is None:
+            members.append({"device_id": device_id, "name": None, "available": False, "motion": None})
+            continue
+        state = await _read_device_state(device)
+        if state.get("available"):
+            any_available = True
+            if state.get("motion"):
+                occupied = True
+        members.append(
+            {
+                "device_id": device_id,
+                "name": device.config.friendly_name or device.config.name,
+                **state,
+            }
+        )
+    return {"occupied": occupied, "available": any_available, "members": members}
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/mqtt/status")
+def api_mqtt_status() -> dict:
+    return mqtt_bridge.bridge.status()
+
+
+@app.get("/api/presets")
+def api_presets() -> dict:
+    return {
+        "presets": presets.as_dicts(),
+        "kb_per_second_per_pps": presets.KB_PER_SECOND_PER_PPS,
+    }
 
 
 @app.get("/api/esphome/version")
@@ -124,7 +216,7 @@ def api_create_device(payload: dict) -> dict:
 def api_get_device(device_id: str) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     return device.public()
 
 
@@ -132,7 +224,7 @@ def api_get_device(device_id: str) -> dict:
 def api_update_device(device_id: str, payload: dict) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     try:
         patch = devices.DeviceUpdate.model_validate(payload)
     except ValidationError as err:
@@ -145,31 +237,60 @@ def api_update_device(device_id: str, payload: dict) -> dict:
 @app.delete("/api/devices/{device_id}", status_code=204)
 def api_delete_device(device_id: str) -> None:
     if not devices.delete_device(device_id):
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
 
 
 @app.get("/api/devices/{device_id}/state")
 async def api_device_state(device_id: str) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     return await _read_device_state(device)
+
+
+@app.get("/api/devices/{device_id}/history")
+async def api_device_history(device_id: str, minutes: int = 30) -> dict:
+    """Movement-score history, so the dashboard sparkline starts populated
+    instead of building up from nothing on every page load."""
+    device = devices.get_device(device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
+    if not device.entity_movement_score:
+        return {"available": False, "error": "Keine Bewegungswert-Entity konfiguriert", "points": []}
+
+    minutes = max(1, min(minutes, 1440))
+    try:
+        raw = await ha_client.get_history(device.entity_movement_score, minutes)
+    except ha_client.HomeAssistantUnavailable as err:
+        return {"available": False, "error": str(err), "points": []}
+
+    points = []
+    for entry in raw:
+        value = _safe_float(entry.get("state"))
+        if value is None:  # skips "unavailable" / "unknown"
+            continue
+        stamp = entry.get("last_changed") or entry.get("last_updated")
+        parsed = _parse_ts(stamp)
+        if parsed is None:
+            continue
+        points.append({"t": parsed, "v": value})
+    return {"available": True, "points": points}
 
 
 @app.post("/api/devices/{device_id}/threshold")
 async def api_set_threshold(device_id: str, payload: dict) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     if not device.entity_threshold:
-        raise HTTPException(status_code=409, detail="No threshold entity configured for this device")
+        raise HTTPException(status_code=409, detail="Für dieses Gerät ist keine Schwellen-Entity konfiguriert")
     value = _safe_float(payload.get("value"))
     if value is None or not (0.0 <= value <= 10.0):
-        raise HTTPException(status_code=422, detail='Body must be {"value": <number 0.0-10.0>}')
+        raise HTTPException(status_code=422, detail='Erwartet wird {"value": <Zahl 0.0-10.0>}')
     try:
         await ha_client.call_service("number", "set_value", device.entity_threshold, value=value)
     except ha_client.HomeAssistantUnavailable as err:
-        raise HTTPException(status_code=502, detail=f"Home Assistant unreachable: {err}") from err
+        raise HTTPException(status_code=502, detail=f"Home Assistant nicht erreichbar: {err}") from err
     return {"status": "ok"}
 
 
@@ -177,13 +298,13 @@ async def api_set_threshold(device_id: str, payload: dict) -> dict:
 async def api_calibrate_device(device_id: str) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     if not device.entity_calibrate:
-        raise HTTPException(status_code=409, detail="No calibrate entity configured for this device")
+        raise HTTPException(status_code=409, detail="Für dieses Gerät ist keine Kalibrierungs-Entity konfiguriert")
     try:
         await ha_client.call_service("switch", "turn_on", device.entity_calibrate)
     except ha_client.HomeAssistantUnavailable as err:
-        raise HTTPException(status_code=502, detail=f"Home Assistant unreachable: {err}") from err
+        raise HTTPException(status_code=502, detail=f"Home Assistant nicht erreichbar: {err}") from err
     return {"status": "ok"}
 
 
@@ -191,9 +312,9 @@ async def api_calibrate_device(device_id: str) -> dict:
 async def api_build_device(device_id: str) -> dict:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     if not builder.try_start_build(device_id):
-        raise HTTPException(status_code=409, detail="A build is already running for this device")
+        raise HTTPException(status_code=409, detail="Für dieses Gerät läuft bereits ein Build")
 
     device.status = devices.BuildStatus.QUEUED
     devices.save_device(device)
@@ -207,11 +328,11 @@ async def api_build_device(device_id: str) -> dict:
 def api_device_manifest(device_id: str) -> JSONResponse:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     if device.status != devices.BuildStatus.SUCCESS or not device.firmware_bin:
-        raise HTTPException(status_code=409, detail="Firmware has not been built yet")
+        raise HTTPException(status_code=409, detail="Die Firmware wurde noch nicht gebaut")
     manifest = {
-        "name": f"ESPectre - {device.config.friendly_name or device.config.name}",
+        "name": f"Echolot – {device.config.friendly_name or device.config.name}",
         "version": str(int(device.updated_at)),
         "new_install_prompt_erase": True,
         "builds": [
@@ -228,12 +349,12 @@ def api_device_manifest(device_id: str) -> JSONResponse:
 def api_device_firmware(device_id: str) -> FileResponse:
     device = devices.get_device(device_id)
     if device is None:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
     if device.status != devices.BuildStatus.SUCCESS or not device.firmware_bin:
-        raise HTTPException(status_code=409, detail="Firmware has not been built yet")
+        raise HTTPException(status_code=409, detail="Die Firmware wurde noch nicht gebaut")
     path = devices.device_dir(device_id) / device.firmware_bin
     if not path.exists():
-        raise HTTPException(status_code=404, detail="Firmware file missing on disk")
+        raise HTTPException(status_code=404, detail="Firmware-Datei fehlt auf der Festplatte")
     return FileResponse(path, media_type="application/octet-stream", filename="firmware.bin")
 
 
@@ -250,7 +371,7 @@ def api_create_zone(payload: dict) -> dict:
         raise HTTPException(status_code=422, detail=_validation_detail(err)) from err
     unknown = [d for d in config.device_ids if devices.get_device(d) is None]
     if unknown:
-        raise HTTPException(status_code=422, detail=f"Unknown device id(s): {', '.join(unknown)}")
+        raise HTTPException(status_code=422, detail=f"Unbekannte Geräte-ID(s): {', '.join(unknown)}")
     zone = zones.create_zone(config)
     return zone.model_dump()
 
@@ -259,7 +380,7 @@ def api_create_zone(payload: dict) -> dict:
 def api_get_zone(zone_id: str) -> dict:
     zone = zones.get_zone(zone_id)
     if zone is None:
-        raise HTTPException(status_code=404, detail="Zone not found")
+        raise HTTPException(status_code=404, detail="Zone nicht gefunden")
     return zone.model_dump()
 
 
@@ -267,7 +388,7 @@ def api_get_zone(zone_id: str) -> dict:
 def api_update_zone(zone_id: str, payload: dict) -> dict:
     zone = zones.get_zone(zone_id)
     if zone is None:
-        raise HTTPException(status_code=404, detail="Zone not found")
+        raise HTTPException(status_code=404, detail="Zone nicht gefunden")
     try:
         patch = zones.ZoneUpdate.model_validate(payload)
     except ValidationError as err:
@@ -275,7 +396,7 @@ def api_update_zone(zone_id: str, payload: dict) -> dict:
     if patch.device_ids is not None:
         unknown = [d for d in patch.device_ids if devices.get_device(d) is None]
         if unknown:
-            raise HTTPException(status_code=422, detail=f"Unknown device id(s): {', '.join(unknown)}")
+            raise HTTPException(status_code=422, detail=f"Unbekannte Geräte-ID(s): {', '.join(unknown)}")
     zone.apply_update(patch)
     zones.save_zone(zone)
     return zone.model_dump()
@@ -284,36 +405,18 @@ def api_update_zone(zone_id: str, payload: dict) -> dict:
 @app.delete("/api/zones/{zone_id}", status_code=204)
 def api_delete_zone(zone_id: str) -> None:
     if not zones.delete_zone(zone_id):
-        raise HTTPException(status_code=404, detail="Zone not found")
+        raise HTTPException(status_code=404, detail="Zone nicht gefunden")
+    # Retract the discovery message too, or the entity lingers in Home
+    # Assistant as "unavailable" forever.
+    mqtt_bridge.bridge.forget_zone(zone_id)
 
 
 @app.get("/api/zones/{zone_id}/state")
 async def api_zone_state(zone_id: str) -> dict:
     zone = zones.get_zone(zone_id)
     if zone is None:
-        raise HTTPException(status_code=404, detail="Zone not found")
-
-    members = []
-    occupied = False
-    any_available = False
-    for device_id in zone.device_ids:
-        device = devices.get_device(device_id)
-        if device is None:
-            members.append({"device_id": device_id, "name": None, "available": False, "motion": None})
-            continue
-        state = await _read_device_state(device)
-        if state.get("available"):
-            any_available = True
-            if state.get("motion"):
-                occupied = True
-        members.append(
-            {
-                "device_id": device_id,
-                "name": device.config.friendly_name or device.config.name,
-                **state,
-            }
-        )
-    return {"occupied": occupied, "available": any_available, "members": members}
+        raise HTTPException(status_code=404, detail="Zone nicht gefunden")
+    return await compute_zone_state(zone)
 
 
 @app.get("/", response_class=HTMLResponse)
