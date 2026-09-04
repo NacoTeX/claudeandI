@@ -141,6 +141,43 @@
           <label class="zone-devices-label">Geräte
             <div id="zone-device-picker" class="zone-device-picker"></div>
           </label>
+
+          <details class="tuning">
+            <summary>Feinabstimmung</summary>
+            <p class="hint">
+              Ohne Feinabstimmung gilt eine Zone genau dann als belegt,
+              wenn irgendein Gerät gerade Bewegung meldet. Das reagiert
+              sofort — fällt aber genauso sofort wieder ab, sobald jemand
+              zwei Sekunden stillsitzt.
+            </p>
+            <div class="tuning-fields">
+            <label>Haltezeit (Sekunden)
+              <input name="hold_seconds" type="number" min="0" max="3600" step="1"
+                     value="0" inputmode="numeric">
+              <span class="field-hint">
+                Wie lange die Zone nach der letzten Bewegung noch als belegt
+                gilt. 0 schaltet die Haltezeit ab. Für Licht sind 60–180 s
+                üblich.
+              </span>
+            </label>
+            <label>Einschalt-Schwellwert
+              <input name="enter_threshold" type="number" min="0" step="0.01"
+                     placeholder="leer = Schwelle des Geräts nutzen" inputmode="decimal">
+              <span class="field-hint">
+                Ab diesem Bewegungswert schaltet die Zone ein. Leer lassen,
+                um die auf dem Gerät eingestellte Schwelle zu verwenden.
+              </span>
+            </label>
+            <label>Ausschalt-Schwellwert
+              <input name="exit_threshold" type="number" min="0" step="0.01"
+                     placeholder="leer = gleicher Wert" inputmode="decimal">
+              <span class="field-hint">
+                Ein niedrigerer zweiter Wert erzeugt eine Hysterese: dazwischen
+                bleibt die Zone in ihrem bisherigen Zustand und flackert nicht.
+              </span>
+            </label>
+          </details>
+
           <button type="submit">Zone anlegen</button>
         </form>
         <p id="zone-form-error" class="status status-err" hidden></p>
@@ -150,8 +187,9 @@
         <h2>Zonen</h2>
         <p class="hint">
           Eine Zone gilt als belegt, sobald eines ihrer Geräte Bewegung
-          erkennt (ODER-Verknüpfung) — die einfache Form der Zonen-Logik,
-          die TOMMY als Topologie anbietet.
+          erkennt. Mit Haltezeit bleibt sie danach noch eine Weile belegt
+          („hält“) und mit zwei Schwellwerten flackert sie im Grenzbereich
+          nicht mehr.
         </p>
         <div id="zone-list" class="device-list"></div>
       </section>

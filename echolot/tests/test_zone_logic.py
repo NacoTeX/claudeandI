@@ -1,0 +1,115 @@
+"""Tests for the zone presence state machine.
+
+The machine is pure and time is an argument, so every case here is exact
+— no sleeping, no tolerance windows. Run with pytest, or directly with
+`python3 tests/test_zone_logic.py` if pytest isn't installed.
+"""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from app.zone_logic import CLEAR, DETECTED, HOLDING, ZoneRuntime, evaluate  # noqa: E402
+
+
+def step(runtime, now, *, motion=False, score=None, enter=None, exit_=None, hold=0.0):
+    return evaluate(
+        runtime,
+        motion=motion,
+        score=score,
+        enter_threshold=enter,
+        exit_threshold=exit_,
+        hold_seconds=hold,
+        now=now,
+    )
+
+
+def test_without_hold_it_is_plain_or_logic():
+    """The pre-0.10 behaviour has to survive untouched as the default."""
+    rt = ZoneRuntime()
+    assert step(rt, 0, motion=True)["state"] == DETECTED
+    assert step(rt, 1, motion=False)["state"] == CLEAR
+
+
+def test_hold_time_keeps_the_zone_occupied_then_releases_it():
+    rt = ZoneRuntime()
+    step(rt, 100, motion=True, hold=30)
+
+    holding = step(rt, 110, motion=False, hold=30)
+    assert holding["state"] == HOLDING
+    assert holding["occupied"] is True
+    assert holding["hold_remaining"] == 20.0
+
+    assert step(rt, 125, motion=False, hold=30)["hold_remaining"] == 5.0
+
+    cleared = step(rt, 131, motion=False, hold=30)
+    assert cleared["state"] == CLEAR
+    assert cleared["occupied"] is False
+    assert cleared["hold_remaining"] == 0.0
+
+
+def test_motion_during_a_hold_restarts_the_countdown():
+    rt = ZoneRuntime()
+    step(rt, 0, motion=True, hold=30)
+    step(rt, 10, motion=False, hold=30)  # holding until t=30
+    step(rt, 20, motion=True, hold=30)  # re-detected, holding until t=50
+
+    refreshed = step(rt, 40, motion=False, hold=30)
+    assert refreshed["state"] == HOLDING
+    assert refreshed["hold_remaining"] == 10.0
+
+
+def test_hysteresis_ignores_the_band_between_the_thresholds():
+    rt = ZoneRuntime()
+    assert step(rt, 0, score=0.5, enter=2.0, exit_=1.0)["state"] == CLEAR
+    assert step(rt, 1, score=2.5, enter=2.0, exit_=1.0)["state"] == DETECTED
+    # Inside the band the previous decision stands — in both directions.
+    assert step(rt, 2, score=1.5, enter=2.0, exit_=1.0)["state"] == DETECTED
+    assert step(rt, 3, score=0.9, enter=2.0, exit_=1.0)["state"] == CLEAR
+    assert step(rt, 4, score=1.5, enter=2.0, exit_=1.0)["state"] == CLEAR
+
+
+def test_a_single_threshold_behaves_as_enter_equals_exit():
+    rt = ZoneRuntime()
+    assert step(rt, 0, score=2.0, enter=2.0)["state"] == DETECTED
+    assert step(rt, 1, score=1.9, enter=2.0)["state"] == CLEAR
+
+
+def test_a_configured_threshold_overrides_the_device_motion_flag():
+    rt = ZoneRuntime()
+    assert step(rt, 0, motion=True, score=0.1, enter=2.0)["state"] == CLEAR
+
+
+def test_it_falls_back_to_the_motion_flag_when_no_score_is_available():
+    """A device with no movement-score entity must still work in a tuned zone."""
+    rt = ZoneRuntime()
+    assert step(rt, 0, motion=True, score=None, enter=2.0)["state"] == DETECTED
+
+
+def test_hysteresis_and_hold_compose():
+    rt = ZoneRuntime()
+    step(rt, 0, score=3.0, enter=2.0, exit_=1.0, hold=60)
+    result = step(rt, 30, score=0.2, enter=2.0, exit_=1.0, hold=60)
+    assert result["state"] == HOLDING
+    assert result["raw_motion"] is False
+    assert result["hold_remaining"] == 30.0
+
+
+if __name__ == "__main__":
+    failures = 0
+    for name, fn in sorted(globals().items()):
+        if not name.startswith("test_") or not callable(fn):
+            continue
+        try:
+            fn()
+        except AssertionError:
+            failures += 1
+            import traceback
+
+            print(f"FAIL {name}")
+            traceback.print_exc()
+        else:
+            print(f"ok   {name}")
+    print("\n" + ("alle Tests bestanden" if not failures else f"{failures} fehlgeschlagen"))
+    sys.exit(1 if failures else 0)

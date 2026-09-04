@@ -141,6 +141,17 @@ function redraw(id) {
 
 /* ---------- rendering ---------- */
 
+// Sekunden lesbar machen: unter einer Minute reicht "42 s", darüber ist
+// "3 min" das, was man tatsächlich ablesen will.
+function formatHoldRemaining(seconds) {
+  if (seconds >= 60) {
+    const m = Math.floor(seconds / 60);
+    const rest = Math.round(seconds % 60);
+    return rest ? `${m} min ${rest} s` : `${m} min`;
+  }
+  return `${Math.round(seconds)} s`;
+}
+
 function relativeTime(ms) {
   if (ms == null) return "";
   const s = Math.round(ms / 1000);
@@ -323,6 +334,13 @@ async function refreshZone(id, tileEl) {
   if (!state.available) {
     dot.className = "tile-dot tile-dot-unknown";
     stateEl.textContent = "nicht verfügbar";
+    stateEl.className = "tile-state status-warn";
+  } else if (state.state === "holding") {
+    // Belegt, aber nur noch durch die Haltezeit. Das sichtbar zu machen ist
+    // der Unterschied zwischen "der Sensor sieht mich" und "die Zone wartet
+    // noch ab" — sonst wirkt eine gut abgestimmte Zone wie ein Fehler.
+    dot.className = "tile-dot tile-dot-holding";
+    stateEl.textContent = `hält noch ${formatHoldRemaining(state.hold_remaining)}`;
     stateEl.className = "tile-state status-warn";
   } else {
     dot.className = `tile-dot ${state.occupied ? "tile-dot-on" : "tile-dot-off"}`;

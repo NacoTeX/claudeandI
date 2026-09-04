@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.10.0
+
+Zones learn to hold. Until now a zone was the plain OR of its members'
+motion sensors: instant to react, but equally instant to drop out, which
+makes it unusable for lighting when a CSI score dips for two seconds.
+
+- **Haltezeit**: a zone stays occupied for a configurable span after the
+  last movement, and reports a third state, `holding`, while that
+  countdown runs. Zone cards and dashboard tiles show the remaining time,
+  so a zone that is deliberately waiting doesn't look like a stuck
+  sensor.
+- **Hysterese**: separate enter/exit thresholds on the movement score. In
+  the band between them a zone keeps whatever state it had, so it cannot
+  flicker on the boundary. A single value still works — that is just
+  enter == exit.
+- Both are optional and default to off, so existing zones behave exactly
+  as before.
+- The state machine lives in `app/zone_logic.py` as a pure function of
+  (readings, time) and is covered by `tests/test_zone_logic.py`; the API
+  and the MQTT bridge share one code path, so Home Assistant can never
+  see a different state than the dashboard.
+- Fix: `Zone.apply_update` wrote fields with `setattr` and so skipped
+  validation — a PATCH that lowered only the enter threshold could leave
+  the exit threshold stranded above it. Updates now re-validate the
+  merged zone and answer 422.
+- Fix: the layout probe only ever measured collapsed `<details>`, and the
+  new tuning section overflowed its card on phones because a grid item's
+  automatic minimum size is its content width. Probe and layout both
+  fixed; measured overflow is 0 px across five viewports and all four
+  tabs.
+
 ## 0.9.3
 
 Firmware configuration is now validated against real ESPHome rather than

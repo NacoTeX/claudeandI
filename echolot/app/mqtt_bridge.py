@@ -206,8 +206,13 @@ class ZoneBridge:
 bridge = ZoneBridge()
 
 
-async def publish_loop(compute_zone_state, list_zones, interval: float = 10.0) -> None:
-    """Mirror zone state to MQTT on a timer, independent of the UI."""
+async def publish_loop(compute_zone_state, list_zones, on_zone_gone=None, interval: float = 10.0) -> None:
+    """Mirror zone state to MQTT on a timer, independent of the UI.
+
+    A zone can also disappear because someone edited zones.json by hand,
+    which never goes through the delete route — hence `on_zone_gone`, so
+    the caller can drop the zone's hold-time state alongside the entity.
+    """
     known: set[str] = set()
     while True:
         try:
@@ -215,6 +220,8 @@ async def publish_loop(compute_zone_state, list_zones, interval: float = 10.0) -
             current = {z.id for z in zones}
             for gone in known - current:
                 bridge.forget_zone(gone)
+                if on_zone_gone is not None:
+                    on_zone_gone(gone)
             known = current
 
             for zone in zones:
