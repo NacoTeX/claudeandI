@@ -65,6 +65,29 @@ runtime entities — ESPectre only exposes it as a compile-time YAML
 option, so changing it means rebuilding and reflashing on the Devices
 tab, not a Zones-tab control.
 
+### Übersicht
+
+The first tab answers, in this order: what is being sensed right now, what
+is stopping it from sensing correctly, and what the system is made of.
+
+**Jetzt** shows every zone with its live state — occupied, free, holding
+(with the countdown), or without devices. Clicking one opens the dashboard,
+where you can see which member device is actually tripping.
+
+**Braucht Aufmerksamkeit** appears only when something is wrong, and each
+entry is worded as the thing to do about it: a build that failed, a device
+never built, a device flashed but returning no values, a failed network
+update, a zone with no devices, a zone export with no broker. A build in
+progress is deliberately *not* listed — work in flight is not a fault, and
+listing it teaches people to ignore the list.
+
+**System** is reference rather than news: device count, total radio load
+across the fleet, whether zones reach Home Assistant, and the ESPHome
+version.
+
+With nothing set up yet, the tab is a three-step setup path instead — a
+status report about an empty system has nothing to report.
+
 ### Zones
 
 The **Zones** tab groups devices and reports "occupied" when *any*

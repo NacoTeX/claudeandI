@@ -30,6 +30,7 @@ from app import (
     entity_resolver,
     ha_client,
     mqtt_bridge,
+    overview,
     presets,
     reachability,
     zone_logic,
@@ -277,6 +278,65 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/overview")
+async def api_overview() -> dict:
+    """Everything the first screen needs, from one Home Assistant snapshot.
+
+    Assembled here rather than in the browser because the alternative is
+    one request per zone plus three per device, on a page whose whole job
+    is to load fast.
+    """
+    device_list = devices.list_devices()
+    zone_list = zones.list_zones()
+    states = await _states_snapshot() if device_list else None
+
+    device_states = []
+    for device in device_list:
+        state = None
+        if str(device.status) == "success":
+            state = await _read_device_state(device, states)
+        device_states.append((device, state))
+
+    zone_views = []
+    for zone in zone_list:
+        verdict = await compute_zone_state(zone, states)
+        zone_views.append(
+            {
+                "id": zone.id,
+                "name": zone.name,
+                "state": verdict["state"],
+                "occupied": verdict["occupied"],
+                "hold_remaining": verdict["hold_remaining"],
+                "available": verdict["available"],
+                "device_count": len(zone.device_ids),
+            }
+        )
+
+    mqtt_status = mqtt_bridge.bridge.status()
+    mqtt_wanted = os.environ.get("ECHOLOT_MQTT_EXPORT", "true").lower() not in ("0", "false", "no")
+    esphome = _esphome_version()
+
+    problems = overview.collect_problems(
+        device_states=device_states,
+        zones_without_devices=[z for z in zone_list if not z.device_ids],
+        mqtt_status=mqtt_status,
+        mqtt_wanted=mqtt_wanted,
+        esphome=esphome,
+    )
+
+    return {
+        "zones": zone_views,
+        "problems": [p.as_dict() for p in problems],
+        "devices": {
+            "total": len(device_list),
+            "built": sum(1 for d in device_list if str(d.status) == "success"),
+        },
+        "esphome": esphome,
+        "mqtt": {**mqtt_status, "wanted": mqtt_wanted},
+        "radio_load_kb_per_second": overview.radio_load(device_list, presets.KB_PER_SECOND_PER_PPS),
+    }
+
+
 @app.get("/api/mqtt/status")
 def api_mqtt_status() -> dict:
     return mqtt_bridge.bridge.status()
@@ -290,9 +350,18 @@ def api_presets() -> dict:
     }
 
 
-@app.get("/api/esphome/version")
-def esphome_version() -> dict:
-    """Confirm the bundled ESPHome CLI is usable (needed for firmware builds)."""
+_esphome_version_cache: dict | None = None
+
+
+def _esphome_version() -> dict:
+    """Whether the bundled ESPHome CLI is usable, cached.
+
+    Spawning a subprocess is cheap once and wasteful on every overview
+    load — and the answer cannot change while this container runs.
+    """
+    global _esphome_version_cache
+    if _esphome_version_cache is not None:
+        return _esphome_version_cache
     try:
         result = subprocess.run(
             ["esphome", "version"],
@@ -301,10 +370,18 @@ def esphome_version() -> dict:
             timeout=15,
             check=True,
         )
-        return {"available": True, "version": result.stdout.strip()}
+        _esphome_version_cache = {"available": True, "version": result.stdout.strip()}
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as err:
         logger.warning("esphome CLI check failed: %s", err)
+        # Not cached: a transient failure should not be permanent.
         return {"available": False, "error": str(err)}
+    return _esphome_version_cache
+
+
+@app.get("/api/esphome/version")
+def esphome_version() -> dict:
+    """Confirm the bundled ESPHome CLI is usable (needed for firmware builds)."""
+    return _esphome_version()
 
 
 @app.get("/api/boards")

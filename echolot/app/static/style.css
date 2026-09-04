@@ -288,28 +288,145 @@ h2 {
 
 .preset-label select { max-width: 22rem; }
 
-.roadmap h2 {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--faint);
+/* ---------- Übersicht ----------
+
+   The page answers, in order: what is sensed right now, what is stopping
+   it from sensing correctly, and what the system is made of. The first
+   two are the reason to open it; the third is reference and is styled to
+   recede. */
+
+.zone-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  gap: 0.7rem;
+  margin-top: 0.8rem;
 }
 
-.roadmap ol {
-  padding-left: 1.2rem;
-  color: var(--muted);
+/* A zone is a button because it leads somewhere — the dashboard tile that
+   shows which member device is actually tripping. */
+.zone-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-start;
+  text-align: left;
+  padding: 0.85rem 1rem;
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: var(--glass);
+  min-width: 0;
 }
 
-/* Done phases recede; what's still open is what you want to see. */
-.roadmap li {
-  margin: 0.2rem 0;
-  color: var(--text);
+.zone-pill:hover { border-color: var(--accent-line); }
+
+.zone-pill-name {
   font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
 }
 
-.roadmap li.done {
+.zone-pill-state {
+  font-size: 0.82rem;
   color: var(--muted);
-  font-weight: 400;
+}
+
+/* Occupied is the state worth spotting across a room. Holding gets the
+   warn colour rather than green: it is occupied only because a countdown
+   says so, and reading it as a live detection hides that. */
+.zone-pill-on {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 10%, var(--glass));
+}
+.zone-pill-on .zone-pill-state { color: var(--ok); font-weight: 600; }
+
+.zone-pill-holding {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, var(--glass));
+}
+.zone-pill-holding .zone-pill-state { color: var(--warn); font-weight: 600; }
+
+.zone-pill-unknown { opacity: 0.6; }
+
+.problem-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.8rem 0 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.problem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--warn);
+  background: var(--glass-well);
+  line-height: 1.5;
+}
+
+.problem > span { min-width: 0; overflow-wrap: anywhere; }
+
+/* Reads as text, behaves as a control: these only ever switch tabs, so a
+   button styled like a button would overstate the action. */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  white-space: nowrap;
+}
+
+.link-btn:hover { color: var(--text); }
+
+.setup-steps {
+  margin: 0.9rem 0 0;
+  padding-left: 1.3rem;
+  display: grid;
+  gap: 0.9rem;
+  max-width: 44rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.setup-steps strong {
+  color: var(--text);
+  display: block;
+}
+
+/* Auf eigener Zeile: mitten im Fließtext liest sich ein Absprung als
+   Fußnote, nicht als der nächste Schritt. */
+.setup-steps .link-btn {
+  display: block;
+  margin-top: 0.45rem;
+}
+
+/* Reference, not news: two columns on wide screens, stacked on narrow. */
+.system-facts {
+  margin: 0.8rem 0 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.45rem 1.2rem;
+  font-size: 0.88rem;
+  max-width: 40rem;
+}
+
+.system-facts dt {
+  color: var(--faint);
+  font-weight: 550;
+}
+
+.system-facts dd {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 /* ---------- Forms ---------- */

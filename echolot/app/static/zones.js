@@ -13,18 +13,9 @@ function numberOrNull(input) {
   return raw === "" ? null : Number(raw);
 }
 
-function formatHold(seconds) {
-  if (seconds >= 60) {
-    const m = Math.floor(seconds / 60);
-    const s = Math.round(seconds % 60);
-    return s ? `${m} min ${s} s` : `${m} min`;
-  }
-  return `${Math.round(seconds)} s`;
-}
-
 function tuningSummary(zone) {
   const parts = [];
-  if (zone.hold_seconds > 0) parts.push(`Haltezeit ${formatHold(zone.hold_seconds)}`);
+  if (zone.hold_seconds > 0) parts.push(`Haltezeit ${formatSeconds(zone.hold_seconds)}`);
   if (zone.enter_threshold !== null && zone.enter_threshold !== undefined) {
     parts.push(
       zone.exit_threshold !== null && zone.exit_threshold !== undefined
@@ -123,7 +114,7 @@ async function refreshZoneState(id) {
   } else if (state.state === "holding") {
     // Der Countdown ist der interessante Teil: er erklärt, warum die Zone
     // noch belegt ist, obwohl gerade nichts mehr gemessen wird.
-    statusEl.textContent = `hält noch ${formatHold(state.hold_remaining)}`;
+    statusEl.textContent = `hält noch ${formatSeconds(state.hold_remaining)}`;
     statusEl.className = "status status-warn zone-status";
   } else {
     statusEl.textContent = state.occupied ? "belegt" : "frei";
