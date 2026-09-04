@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.1
+
+- Fix: the add-on image would not build at all. `paho-mqtt>=2.1` conflicted
+  with ESPHome, which pins `paho-mqtt==1.6.1` exactly, so pip failed with
+  ResolutionImpossible before anything was installed. The requirement now
+  admits 1.6.x, and the MQTT client works with both paho generations — 2.x
+  is asked for its VERSION1 callback API so one set of signatures serves
+  both.
+- Fix: zone names with umlauts produced entity ids containing the umlaut.
+  A zone called "Küche" now becomes `binary_sensor.echolot_kueche` while
+  keeping "Küche" as its display name.
+
 ## 0.9.0
 
 Phase 5 — the last planned phase.

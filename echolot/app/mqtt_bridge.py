@@ -16,7 +16,9 @@ import asyncio
 import json
 import logging
 import os
+import re
 import threading
+import unicodedata
 
 import httpx
 import paho.mqtt.client as mqtt
@@ -40,6 +42,18 @@ class MqttUnavailable(Exception):
     """No broker configured, or the Supervisor wouldn't tell us about one."""
 
 
+def _new_client(client_id: str) -> mqtt.Client:
+    """Build a client that works on both paho generations.
+
+    ESPHome pins paho-mqtt==1.6.1, so the container gets 1.x while a
+    development machine may well have 2.x. Asking 2.x for the VERSION1
+    callback API means one set of callback signatures serves both.
+    """
+    if hasattr(mqtt, "CallbackAPIVersion"):
+        return mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id=client_id)
+    return mqtt.Client(client_id=client_id)
+
+
 def zone_state_topic(zone_id: str) -> str:
     return f"{BASE_TOPIC}/zone/{zone_id}/state"
 
@@ -48,12 +62,28 @@ def zone_discovery_topic(zone_id: str) -> str:
     return f"{DISCOVERY_PREFIX}/binary_sensor/{BASE_TOPIC}/zone_{zone_id}/config"
 
 
+def slugify(name: str) -> str:
+    """Zone name -> safe entity id suffix.
+
+    German zone names are the normal case here ("Küche", "Büro"), and an
+    umlaut left in an object_id makes the resulting entity id whatever
+    Home Assistant decides to do with it. Transliterate first, then keep
+    only characters that are valid in an entity id.
+    """
+    lowered = name.lower()
+    for source, target in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        lowered = lowered.replace(source, target)
+    slug = re.sub(r"[^a-z0-9]+", "_", unicodedata.normalize("NFKD", lowered))
+    slug = slug.encode("ascii", "ignore").decode().strip("_")
+    return slug or "zone"
+
+
 def zone_discovery_payload(zone_id: str, zone_name: str) -> dict:
     """The config message that makes Home Assistant create the entity."""
     return {
         "name": zone_name,
         "unique_id": f"echolot_zone_{zone_id}",
-        "object_id": f"echolot_{zone_name.lower().replace(' ', '_')}",
+        "object_id": f"echolot_{slugify(zone_name)}",
         "state_topic": zone_state_topic(zone_id),
         "device_class": "occupancy",
         "payload_on": "ON",
@@ -99,23 +129,22 @@ class ZoneBridge:
 
     async def start(self) -> None:
         config = await fetch_broker_config()
-        # paho 2.x requires an explicit callback API version.
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="echolot")
+        client = _new_client("echolot")
         if config.get("username"):
             client.username_pw_set(config["username"], config.get("password") or None)
         if config.get("ssl"):
             client.tls_set()
         client.will_set(AVAILABILITY_TOPIC, "offline", retain=True)
 
-        def on_connect(_client, _userdata, _flags, reason_code, _properties=None):
-            ok = getattr(reason_code, "is_failure", None)
-            self.connected = (not ok) if ok is not None else reason_code == 0
+        # VERSION1 signatures: (client, userdata, flags, rc).
+        def on_connect(_client, _userdata, _flags, rc):
+            self.connected = rc == 0
             if self.connected:
                 self.error = None
                 _client.publish(AVAILABILITY_TOPIC, "online", retain=True)
                 logger.info("MQTT connected to %s", config["host"])
             else:
-                self.error = f"Verbindung abgelehnt: {reason_code}"
+                self.error = f"Verbindung abgelehnt (Code {rc})"
 
         def on_disconnect(_client, _userdata, *_args):
             self.connected = False
