@@ -112,6 +112,50 @@
           <label>Erkennungsschwelle
             <input name="segmentation_threshold" value="auto" placeholder="auto, min oder 0.0–10.0">
           </label>
+
+          <details class="tuning device-extras">
+            <summary>Weitere Firmware-Optionen</summary>
+            <p class="hint">
+              Sinnvolle Voreinstellungen — anfassen musst du das nur, wenn
+              der Flash-Speicher knapp wird oder du einem Fehler nachgehst.
+            </p>
+            <div class="tuning-fields">
+              <label class="checkbox-field">
+                <input type="checkbox" name="web_server" checked>
+                <span>Statusseite auf dem Gerät
+                  <span class="field-hint">
+                    Erreichbar unter <code>http://&lt;IP&gt;/</code> von jedem
+                    Browser — auch dort, wo Flashen nicht geht, etwa auf dem iPad.
+                    Kostet etwas Flash-Speicher.
+                  </span>
+                </span>
+              </label>
+              <label class="checkbox-field">
+                <input type="checkbox" name="diagnostics" checked>
+                <span>Diagnose-Entities
+                  <span class="field-hint">
+                    Signalstärke, Betriebszeit, Chip-Temperatur, IP-Adresse und
+                    Neustart-Knöpfe. Die Signalstärke entscheidet, ob ein Platz
+                    für CSI-Erkennung überhaupt taugt.
+                  </span>
+                </span>
+              </label>
+              <label>Protokollstufe des Geräts
+                <select name="log_level">
+                  <option value="NONE">NONE — nichts</option>
+                  <option value="ERROR">ERROR</option>
+                  <option value="WARN">WARN</option>
+                  <option value="INFO" selected>INFO — Standard</option>
+                  <option value="DEBUG">DEBUG</option>
+                  <option value="VERBOSE">VERBOSE — sehr gesprächig</option>
+                </select>
+                <span class="field-hint">
+                  Höhere Stufen kosten Rechenzeit und können die Messung stören.
+                </span>
+              </label>
+            </div>
+          </details>
+
           <button type="submit">Gerät anlegen</button>
         </form>
         <p id="device-form-error" class="status status-err" hidden></p>

@@ -1,5 +1,70 @@
 # Changelog
 
+## 0.11.0
+
+The firmware learns to answer for itself, updates stop needing a USB
+cable, and the devices are no longer wide open on the network.
+
+### Auf dem Gerät
+
+- **Statusseite** (`web_server`, on by default). Reachable at
+  `http://<ip>/` from any browser, including ones with no Web Serial —
+  everything on iPadOS. The page is embedded in the firmware, so it works
+  with the device cut off from the internet. This is the answer to "is
+  this thing even alive?", which previously required a USB cable.
+- **Diagnose-Entities** (on by default): signal strength, uptime, chip
+  temperature, IP address, connected SSID, MAC address, and restart /
+  safe-mode buttons. Signal strength is not housekeeping here — CSI
+  sensing degrades with a weak link, so it says whether a spot is viable
+  before anything gets mounted.
+- **Per-device API encryption key and OTA password.** Until now the
+  firmware had neither: anyone on the network could read the sensor, drive
+  it, and reflash it. Home Assistant asks for the key when adopting a
+  device, so the device card shows it with a copy button.
+- The firmware log level is now a per-device setting.
+
+### Im Add-on
+
+- **Update über WLAN.** After the first USB flash, firmware goes to the
+  device over the network — the upload runs in the add-on, so it works
+  from any browser. One computer per device, once, and never again.
+- **Erreichbarkeit prüfen** probes ports 6053 and 80 and distinguishes the
+  four cases that all used to read as "nicht verfügbar": name won't
+  resolve, nothing answers, only the status page answers, or the device is
+  fine and Home Assistant simply hasn't adopted it.
+- Reading a zone made three Home Assistant round-trips *per member device*.
+  A zone of five devices cost fifteen requests, every ten seconds, forever.
+  One snapshot now serves every zone in a cycle: measured at 15 requests
+  down to 1. Single device cards keep their targeted reads, which stay
+  cheaper than pulling every state in Home Assistant.
+
+### Projekt
+
+- **armv7 removed.** It was advertised in `config.yaml` and `build.yaml`,
+  but Espressif ships no ESP-IDF toolchain for 32-bit hosts — the official
+  ESPHome add-on lists aarch64 and amd64 only. Promising a platform that
+  cannot work is worse than not offering it.
+- **CI**, which did not exist. Every pull request now runs the unit tests,
+  renders the firmware template for all six boards through `esphome
+  config`, and checks the add-on manifest. `tools/check_metadata.py` found
+  a real gap on its first run: `mqtt_export` had no translation.
+- `README.md` for the add-on; `translations/en.yaml` completed.
+- CI's first run caught its own bug: `pip install ... pytest`, unpinned,
+  made the resolver backtrack through pytest releases until it reached a
+  2013-era version that bootstraps `distribute` over plain HTTP, and the
+  job died on `HTTP Error 403: SSL is required`. pytest is pinned in a
+  separate `requirements-dev.txt`, verified to resolve.
+- Fix: a device stored before this release has no encryption key, and the
+  generating default would have produced a *different* one on every read —
+  so the key shown would not have been the key in the firmware. Missing
+  keys are now generated once and persisted.
+- Fix: `.btn-secondary` was not a class at all but a hand-kept list of
+  every secondary control by name, so each new button silently fell
+  through to the browser's default styling. It is a real class now.
+- `tests/test_state_reading.py` pins both halves of the batching change:
+  that a zone reads from one snapshot, and that a failing `/states`
+  degrades to individual reads instead of blacking out every device.
+
 ## 0.10.2
 
 A successfully flashed device stayed "nicht verfügbar" forever. The

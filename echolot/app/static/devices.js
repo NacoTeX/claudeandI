@@ -107,6 +107,15 @@ function renderDevice(device) {
   // Only offered after a failure the backend traced to the toolchain: the
   // button throws away a ~2 GB download, so it must not read as a routine
   // "try this" next to every build.
+  const otaLine = device.ota_status === "running" || device.ota_status === "queued"
+    ? '<p class="status status-pending">Update über WLAN läuft…</p>'
+    : device.ota_error
+      ? `<p class="status status-err">${escapeHtml(device.ota_error)}</p>`
+      : device.ota_last_success
+        ? `<p class="field-note">Zuletzt über WLAN aktualisiert: ${
+            escapeHtml(new Date(device.ota_last_success * 1000).toLocaleString("de-DE"))}</p>`
+        : "";
+
   const toolchainBroken = (device.build_error || "").includes("Toolchain");
   const repairBlock = toolchainBroken
     ? `<button class="repair-btn btn-secondary" ${canBuild ? "" : "disabled"}>Toolchain zurücksetzen</button>`
@@ -134,6 +143,33 @@ function renderDevice(device) {
          <p class="live-error status status-err" hidden></p>
          <button type="button" class="detect-btn btn-secondary" hidden>Entities in Home Assistant suchen</button>
        </div>
+       <div class="network-block">
+         <label class="address-label">Netzwerkadresse
+           <input class="address-input" value="${escapeHtml(device.address || "")}"
+                  placeholder="${escapeHtml(device.config.name)}.local oder IP">
+         </label>
+         <div class="device-actions">
+           <button type="button" class="probe-btn btn-secondary">Erreichbarkeit prüfen</button>
+           <button type="button" class="ota-btn btn-secondary">Update über WLAN</button>
+           ${device.config.web_server
+             ? `<a class="status-page-link btn-secondary" target="_blank" rel="noopener"
+                   href="http://${encodeURIComponent(device.address || device.config.name + ".local")}/"
+                   >Statusseite öffnen</a>`
+             : ""}
+         </div>
+         <p class="probe-result status" hidden></p>
+       </div>
+       <details class="key-block">
+         <summary>Verschlüsselungscode für Home Assistant</summary>
+         <p class="hint">
+           Home Assistant fragt danach, wenn es dieses Gerät übernimmt. Ohne
+           den Code kann niemand im Netz das Gerät auslesen oder steuern.
+         </p>
+         <div class="key-row">
+           <code class="api-key">${escapeHtml(device.api_encryption_key || "")}</code>
+           <button type="button" class="copy-key-btn btn-secondary">Kopieren</button>
+         </div>
+       </details>
        <details class="entity-editor">
          <summary>HA-Entity-IDs</summary>
          ${ENTITY_FIELDS.map((f) => `
@@ -152,6 +188,7 @@ function renderDevice(device) {
       </div>
       <p class="device-meta">${escapeHtml(c.name)} · ${escapeHtml(c.board)} · ${escapeHtml(c.detection_algorithm)}</p>
       ${errorLine}
+      ${otaLine}
       <div class="device-actions">
         <button class="build-btn${built ? " btn-secondary" : ""}" ${canBuild ? "" : "disabled"}>${built ? "Neu bauen" : "Firmware bauen"}</button>
         ${repairBlock}
@@ -161,6 +198,92 @@ function renderDevice(device) {
       ${liveBlock}
       ${logBlock}
     </div>`;
+}
+
+function addressOf(card) {
+  const input = card.querySelector(".address-input");
+  return input ? input.value.trim() : "";
+}
+
+async function probeDevice(id, card) {
+  const out = card.querySelector(".probe-result");
+  const button = card.querySelector(".probe-btn");
+  button.disabled = true;
+  out.hidden = false;
+  out.className = "probe-result status status-pending";
+  out.textContent = "Wird geprüft…";
+
+  const host = addressOf(card);
+  const url = host
+    ? `api/devices/${id}/reachability?host=${encodeURIComponent(host)}`
+    : `api/devices/${id}/reachability`;
+  try {
+    const res = await fetch(url);
+    const body = await res.json();
+    if (!res.ok) {
+      out.className = "probe-result status status-err";
+      out.textContent = body.detail || "Prüfung fehlgeschlagen";
+      return;
+    }
+    // "ok" means the device answers — which, when it is still missing in
+    // Home Assistant, points at adoption rather than at the network. That
+    // is a caveat, not a success, so it is not painted green.
+    out.className = `probe-result status ${body.api ? "status-ok" : "status-warn"}`;
+    out.textContent = body.message;
+  } catch (err) {
+    out.className = "probe-result status status-err";
+    out.textContent = "Backend nicht erreichbar";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function startOta(id, card) {
+  const address = addressOf(card);
+  if (!confirm(
+    "Die gebaute Firmware wird über das WLAN auf das Gerät geschoben" +
+    (address ? ` (${address}).` : ".") +
+    "\n\nDas Gerät startet dabei neu. Fortfahren?"
+  )) return;
+
+  const button = card.querySelector(".ota-btn");
+  button.disabled = true;
+  try {
+    const res = await fetch(`api/devices/${id}/ota`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(address ? { address } : {}),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(body.detail || "Das Update konnte nicht gestartet werden");
+      return;
+    }
+    pollDevice(id);
+  } catch (err) {
+    alert("Backend nicht erreichbar");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function copyKey(card, button) {
+  const key = card.querySelector(".api-key").textContent;
+  const original = button.textContent;
+  try {
+    await navigator.clipboard.writeText(key);
+    button.textContent = "Kopiert";
+  } catch (err) {
+    // Clipboard access needs a secure context, which Ingress over plain
+    // HTTP is not. Select the text instead so it can be copied by hand.
+    const range = document.createRange();
+    range.selectNodeContents(card.querySelector(".api-key"));
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    button.textContent = "Markiert — jetzt kopieren";
+  }
+  setTimeout(() => { button.textContent = original; }, 2500);
 }
 
 async function detectEntities(id, button) {
@@ -250,6 +373,26 @@ async function loadDevices() {
 
     const saveEntitiesBtn = el.querySelector(".save-entities-btn");
     if (saveEntitiesBtn) saveEntitiesBtn.addEventListener("click", () => saveEntityIds(id, el));
+
+    const addressInput = el.querySelector(".address-input");
+    if (addressInput) {
+      addressInput.addEventListener("change", () =>
+        fetch(`api/devices/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: addressInput.value.trim() || null }),
+        }).catch(() => {})
+      );
+    }
+
+    const probeBtn = el.querySelector(".probe-btn");
+    if (probeBtn) probeBtn.addEventListener("click", () => probeDevice(id, el));
+
+    const otaBtn = el.querySelector(".ota-btn");
+    if (otaBtn) otaBtn.addEventListener("click", () => startOta(id, el));
+
+    const copyKeyBtn = el.querySelector(".copy-key-btn");
+    if (copyKeyBtn) copyKeyBtn.addEventListener("click", () => copyKey(el, copyKeyBtn));
   }
 
   for (const d of devices) {
@@ -402,7 +545,8 @@ function pollDevice(id) {
       activePolls.delete(id);
       return;
     }
-    if (device.status === "queued" || device.status === "running") {
+    const busy = (st) => st === "queued" || st === "running";
+    if (busy(device.status) || busy(device.ota_status)) {
       setTimeout(tick, POLL_INTERVAL_MS);
     } else {
       activePolls.delete(id);
@@ -420,6 +564,10 @@ document.getElementById("device-form").addEventListener("submit", async (evt) =>
   const form = evt.target;
   const data = Object.fromEntries(new FormData(form).entries());
   data.traffic_generator_rate = Number(data.traffic_generator_rate);
+  // FormData drops unchecked boxes entirely and reports "on" for checked
+  // ones, so neither state survives as the boolean the API expects.
+  data.web_server = form.elements.web_server.checked;
+  data.diagnostics = form.elements.diagnostics.checked;
   if (!data.friendly_name) delete data.friendly_name;
   if (!data.wifi_password) delete data.wifi_password;
 

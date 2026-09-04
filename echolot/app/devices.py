@@ -5,9 +5,11 @@ Backed by a single JSON file under the add-on's persistent /data directory
 keeps this phase free of a database dependency).
 """
 
+import base64
 import json
 import os
 import re
+import secrets
 import threading
 import time
 import unicodedata
@@ -48,6 +50,15 @@ class DeviceCreate(BaseModel):
     traffic_generator_rate: int = Field(default=100, ge=0, le=1000)
     traffic_generator_mode: Literal["ping", "dns"] = "ping"
     segmentation_threshold: str = "auto"
+    #: Serve a status page on the device at http://<ip>/. Costs flash and a
+    #: little RAM, and is the only way to check a device from a browser
+    #: that has no Web Serial — everything on iPadOS, for instance.
+    web_server: bool = True
+    #: Signal strength, uptime, chip temperature, IP address, restart
+    #: buttons. Signal strength in particular decides whether a spot is
+    #: viable for CSI sensing at all.
+    diagnostics: bool = True
+    log_level: Literal["NONE", "ERROR", "WARN", "INFO", "DEBUG", "VERBOSE"] = "INFO"
 
     @field_validator("name")
     @classmethod
@@ -124,6 +135,19 @@ class DeviceUpdate(BaseModel):
     entity_movement_score: str | None = None
     entity_threshold: str | None = None
     entity_calibrate: str | None = None
+    #: Where to reach the device on the network, for OTA updates and the
+    #: reachability check. Learned from Home Assistant where possible,
+    #: overridable because mDNS does not survive every network.
+    address: str | None = None
+
+
+def new_api_key() -> str:
+    """A fresh 32-byte key, base64-encoded the way ESPHome expects it."""
+    return base64.b64encode(secrets.token_bytes(32)).decode()
+
+
+def new_ota_password() -> str:
+    return secrets.token_hex(16)
 
 
 class Device(BaseModel):
@@ -142,9 +166,31 @@ class Device(BaseModel):
     entity_movement_score: str | None = None
     entity_threshold: str | None = None
     entity_calibrate: str | None = None
+    #: Baked into the firmware, and needed again when Home Assistant adopts
+    #: the device — so it has to be readable here, not just generated.
+    api_encryption_key: str = Field(default_factory=new_api_key)
+    ota_password: str = Field(default_factory=new_ota_password)
+    #: Tracked separately from the build: a failed OTA must not make a
+    #: perfectly good firmware image look unbuilt.
+    ota_status: BuildStatus = BuildStatus.IDLE
+    ota_log: str = ""
+    ota_error: str | None = None
+    ota_last_success: float | None = None
+    #: Hostname or IP for OTA and reachability checks. Empty means "use
+    #: <node name>.local", which is right whenever mDNS works.
+    address: str | None = None
+
+    def ota_address(self) -> str:
+        return self.address or f"{self.config.name}.local"
 
     def public(self) -> dict:
-        """Serialize with the Wi-Fi password masked."""
+        """Serialize with the Wi-Fi password masked.
+
+        The API key and OTA password are *not* masked: the whole point of
+        storing them is that the user has to paste the key into Home
+        Assistant, and hiding it would only mean regenerating the device.
+        Both are per-device and never leave this add-on's own UI.
+        """
         data = self.model_dump()
         data["config"]["wifi_password"] = "********" if self.config.wifi_password else ""
         return data
@@ -170,15 +216,44 @@ def _write_index(index: dict[str, dict]) -> None:
     tmp.replace(INDEX_PATH)
 
 
+def _migrate(index: dict[str, dict]) -> bool:
+    """Fill in fields added after a device was first written.
+
+    `api_encryption_key` and `ota_password` have generating defaults, so a
+    device stored before they existed would otherwise get a *different*
+    value on every load — and the key shown in the UI would not be the one
+    baked into the firmware. Generate once, here, and persist.
+
+    Returns whether anything changed.
+    """
+    changed = False
+    for raw in index.values():
+        for field, factory in (
+            ("api_encryption_key", new_api_key),
+            ("ota_password", new_ota_password),
+        ):
+            if not raw.get(field):
+                raw[field] = factory()
+                changed = True
+    return changed
+
+
 def list_devices() -> list[Device]:
     with _lock:
-        return [Device.model_validate(v) for v in _read_index().values()]
+        index = _read_index()
+        if _migrate(index):
+            _write_index(index)
+        return [Device.model_validate(v) for v in index.values()]
 
 
 def get_device(device_id: str) -> Device | None:
     with _lock:
-        raw = _read_index().get(device_id)
-        return Device.model_validate(raw) if raw else None
+        index = _read_index()
+        if device_id not in index:
+            return None
+        if _migrate(index):
+            _write_index(index)
+        return Device.model_validate(index[device_id])
 
 
 def create_device(payload: DeviceCreate) -> Device:

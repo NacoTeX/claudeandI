@@ -1,0 +1,9 @@
+# Development and CI dependencies. Kept apart from app/requirements.txt so
+# nothing here ends up in the add-on image.
+#
+# pytest is pinned deliberately. Left unpinned, pip's resolver — faced with
+# the runtime dependency set alongside it — backtracked through pytest
+# releases until it reached a 2013-era version that tries to bootstrap
+# `distribute` over plain HTTP, and CI died on `HTTP Error 403: SSL is
+# required`. A pin keeps the resolver out of that hole.
+pytest>=8,<9

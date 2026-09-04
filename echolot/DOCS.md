@@ -95,6 +95,72 @@ Score-based detection uses the highest movement score across the zone's
 members. A member with no movement-score entity falls back to its plain
 motion sensor, so mixing tuned and untuned devices in one zone works.
 
+### Der Verschlüsselungscode
+
+Every device gets its own API encryption key and OTA password, generated
+when you create it and baked into its firmware. Without them anyone on the
+network could read the sensor, drive it, and overwrite its firmware.
+
+The consequence is that **Home Assistant asks for the key** when it adopts
+the device. It is on the device card under *Verschlüsselungscode für Home
+Assistant*, with a copy button. (Ingress usually runs over plain HTTP,
+which is not a secure context, so the clipboard API may be unavailable —
+the button then selects the text instead.)
+
+Keys are per device and never leave the add-on. Rebuilding a device keeps
+its key; deleting and recreating it generates a new one, which means
+removing and re-adding the device in Home Assistant too.
+
+### Updates über das Netz statt über USB
+
+Flashing a blank chip needs USB and a browser with Web Serial — Chrome or
+Edge on a desktop. Every update *after* that does not: the device card has
+a **Update über WLAN** button that pushes the built firmware over the
+network. The upload happens in the add-on, so it works from any browser,
+iPadOS included.
+
+It needs an address to talk to, in *Netzwerkadresse* on the device card.
+`<node name>.local` is the default and works wherever mDNS does; enter the
+IP address where it doesn't.
+
+If the device rejects the OTA password, its running firmware predates that
+password — flash it over USB once and network updates work from then on.
+
+### Erreichbarkeit prüfen
+
+**Erreichbarkeit prüfen** on the device card probes TCP ports 6053 (the
+ESPHome API) and 80 (the device's status page) and says which answered:
+
+| Result | Meaning |
+| --- | --- |
+| Name nicht auflösbar | mDNS isn't reaching the add-on — use the IP address |
+| Nichts antwortet | Device off, on another network, or the Wi-Fi isolates its clients |
+| Nur Statusseite | Device is alive; open `http://<ip>/` to see what it says |
+| API antwortet | Network is fine — what's missing is Home Assistant adopting the device |
+
+That last row is the distinction the add-on could not previously make: a
+device Home Assistant has not adopted and a device that never joined the
+network both look like "nicht verfügbar" and need entirely different
+fixes.
+
+### Was auf dem Gerät selbst läuft
+
+Two firmware options on the device form, both on by default:
+
+**Statusseite** puts a web server on the device, reachable at
+`http://<ip>/`. It shows every entity live and lets you drive them, which
+makes it the fastest way to answer "is this thing working?" — and the only
+way from a browser without Web Serial. The page is embedded in the
+firmware, so it works with the device cut off from the internet.
+
+**Diagnose-Entities** add signal strength, uptime, chip temperature, IP
+address, connected SSID, MAC address, and restart buttons. Signal strength
+is the one that matters most here: CSI sensing degrades with a weak link,
+so it tells you whether a spot is viable for the device at all, before you
+mount anything.
+
+Both cost flash space. Turn them off if a build runs out of room.
+
 ### Wenn ein Gerät nach dem Flashen „nicht verfügbar" bleibt
 
 Flashing puts the firmware on the chip; it does not put the device into

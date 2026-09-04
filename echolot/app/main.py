@@ -24,7 +24,17 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
-from app import builder, devices, entity_resolver, ha_client, mqtt_bridge, presets, zone_logic, zones
+from app import (
+    builder,
+    devices,
+    entity_resolver,
+    ha_client,
+    mqtt_bridge,
+    presets,
+    reachability,
+    zone_logic,
+    zones,
+)
 from app.board_registry import BOARDS
 
 logging.basicConfig(level=logging.INFO)
@@ -48,7 +58,7 @@ async def lifespan(_app: FastAPI):
         try:
             await mqtt_bridge.bridge.start()
             task = asyncio.create_task(
-                mqtt_bridge.publish_loop(compute_zone_state, zones.list_zones, forget_zone_runtime)
+                mqtt_bridge.publish_loop(compute_all_zone_states, zones.list_zones, forget_zone_runtime)
             )
         except mqtt_bridge.MqttUnavailable as err:
             # Entirely normal without the Mosquitto add-on; everything else
@@ -102,18 +112,8 @@ def _parse_ts(value) -> float | None:
         return None
 
 
-async def _autodetect_entities(device: devices.Device) -> bool:
-    """Ask Home Assistant what it named this device's entities, and save that.
-
-    Called once when the configured motion entity turns out not to exist.
-    A flashed device that Home Assistant has adopted under a name we did
-    not predict is the common case; without this the device would sit at
-    "nicht verfügbar" forever with a perfectly working sensor behind it.
-    """
-    try:
-        states = await ha_client.list_states()
-    except ha_client.HomeAssistantUnavailable:
-        return False
+def _adopt_entities(device: devices.Device, states: list[dict]) -> bool:
+    """Resolve the device's entities against a snapshot and persist the result."""
     found = entity_resolver.resolve(device, states)
     if not found:
         return False
@@ -124,18 +124,65 @@ async def _autodetect_entities(device: devices.Device) -> bool:
     return True
 
 
-async def _read_device_state(device: devices.Device, allow_detect: bool = True) -> dict:
+async def _autodetect_entities(device: devices.Device) -> bool:
+    """Fetch a snapshot, then adopt from it.
+
+    Called when a single-device read finds its motion entity missing. A
+    flashed device that Home Assistant adopted under a name we did not
+    predict is the common case; without this the device sits at "nicht
+    verfügbar" forever with a working sensor behind it.
+    """
+    try:
+        states = await ha_client.list_states()
+    except ha_client.HomeAssistantUnavailable:
+        return False
+    return _adopt_entities(device, states)
+
+
+async def _states_snapshot() -> dict[str, dict] | None:
+    """One /api/states call, indexed by entity id.
+
+    Reading a zone used to cost three round-trips per member device, so a
+    zone of five devices spent fifteen requests per poll — and the MQTT
+    loop polls every zone, every ten seconds, forever. One snapshot serves
+    all of them.
+    """
+    try:
+        return {s["entity_id"]: s for s in await ha_client.list_states() if "entity_id" in s}
+    except ha_client.HomeAssistantUnavailable:
+        return None
+
+
+async def _read_device_state(
+    device: devices.Device,
+    states: dict[str, dict] | None = None,
+    allow_detect: bool = True,
+) -> dict:
+    """Current motion/score/threshold for one device.
+
+    With `states` given, answers from that snapshot without touching the
+    network; without it, fetches the three entities individually, which is
+    cheaper than pulling every state in Home Assistant for a single card.
+    """
     if not device.entity_motion:
         return {"available": False, "error": "Für dieses Gerät ist keine Bewegungs-Entity konfiguriert"}
-    try:
-        motion = await ha_client.get_state(device.entity_motion)
-        if motion is None and allow_detect and await _autodetect_entities(device):
-            # Entities were just relearned — read once more before giving up.
-            return await _read_device_state(device, allow_detect=False)
-        score = await ha_client.get_state(device.entity_movement_score) if device.entity_movement_score else None
-        threshold = await ha_client.get_state(device.entity_threshold) if device.entity_threshold else None
-    except ha_client.HomeAssistantUnavailable as err:
-        return {"available": False, "error": str(err)}
+
+    if states is not None:
+        motion = states.get(device.entity_motion)
+        score = states.get(device.entity_movement_score) if device.entity_movement_score else None
+        threshold = states.get(device.entity_threshold) if device.entity_threshold else None
+        if motion is None and allow_detect and _adopt_entities(device, list(states.values())):
+            return await _read_device_state(device, states, allow_detect=False)
+    else:
+        try:
+            motion = await ha_client.get_state(device.entity_motion)
+            if motion is None and allow_detect and await _autodetect_entities(device):
+                # Entities were just relearned — read once more before giving up.
+                return await _read_device_state(device, allow_detect=False)
+            score = await ha_client.get_state(device.entity_movement_score) if device.entity_movement_score else None
+            threshold = await ha_client.get_state(device.entity_threshold) if device.entity_threshold else None
+        except ha_client.HomeAssistantUnavailable as err:
+            return {"available": False, "error": str(err)}
     if motion is None:
         return {
             "available": False,
@@ -164,7 +211,7 @@ def forget_zone_runtime(zone_id: str) -> None:
     _zone_runtimes.pop(zone_id, None)
 
 
-async def compute_zone_state(zone: zones.Zone) -> dict:
+async def compute_zone_state(zone: zones.Zone, states: dict[str, dict] | None = None) -> dict:
     """Aggregate a zone's members and run its presence state machine.
 
     Shared by the API route and the MQTT publisher, so what Home Assistant
@@ -173,6 +220,9 @@ async def compute_zone_state(zone: zones.Zone) -> dict:
     means the zone sees movement — but hysteresis and hold time now sit
     between that and the published `occupied` flag (see zone_logic).
     """
+    if states is None and zone.device_ids:
+        states = await _states_snapshot()
+
     members = []
     raw_motion = False
     any_available = False
@@ -182,7 +232,7 @@ async def compute_zone_state(zone: zones.Zone) -> dict:
         if device is None:
             members.append({"device_id": device_id, "name": None, "available": False, "motion": None})
             continue
-        state = await _read_device_state(device)
+        state = await _read_device_state(device, states)
         if state.get("available"):
             any_available = True
             if state.get("motion"):
@@ -209,6 +259,17 @@ async def compute_zone_state(zone: zones.Zone) -> dict:
         now=time.monotonic(),
     )
     return {"available": any_available, "members": members, **verdict}
+
+
+async def compute_all_zone_states(zone_list: list) -> list[tuple]:
+    """Every zone's state from a single Home Assistant snapshot.
+
+    The MQTT loop walks every zone on every tick, so fetching per zone
+    would multiply one round-trip into one per zone — and each of those
+    into three per member device.
+    """
+    states = await _states_snapshot()
+    return [(zone, await compute_zone_state(zone, states)) for zone in zone_list]
 
 
 @app.get("/api/health")
@@ -402,6 +463,54 @@ async def api_detect_entities(device_id: str) -> dict:
         setattr(device, field, entity_id)
     devices.save_device(device)
     return {"detected": found}
+
+
+@app.get("/api/devices/{device_id}/reachability")
+async def api_reachability(device_id: str, host: str | None = None) -> dict:
+    """Probe the device on the network and say what answered.
+
+    Settles the question a missing entity cannot: is the device silent, or
+    is it answering and merely not adopted by Home Assistant?
+    """
+    device = devices.get_device(device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
+    target = (host or device.ota_address()).strip()
+    if not target:
+        raise HTTPException(status_code=422, detail="Keine Adresse angegeben")
+    result = await reachability.check(target)
+    return {**result, "message": reachability.explain(result)}
+
+
+@app.post("/api/devices/{device_id}/ota", status_code=202)
+async def api_start_ota(device_id: str, payload: dict | None = None) -> dict:
+    """Push the built firmware to the running device over the network."""
+    device = devices.get_device(device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden")
+    if device.status != devices.BuildStatus.SUCCESS or not device.firmware_bin:
+        raise HTTPException(status_code=409, detail="Die Firmware wurde noch nicht gebaut")
+
+    address = ((payload or {}).get("address") or device.ota_address()).strip()
+    if not address:
+        raise HTTPException(status_code=422, detail="Keine Adresse angegeben")
+
+    # One lock covers builds and OTA alike: both write the same build
+    # directory, and running them together corrupts it.
+    if not builder.try_start_build(device_id):
+        raise HTTPException(
+            status_code=409, detail="Für dieses Gerät läuft bereits ein Build oder Update"
+        )
+
+    if address != device.address:
+        device.address = address
+    device.ota_status = devices.BuildStatus.QUEUED
+    devices.save_device(device)
+
+    task = asyncio.create_task(asyncio.to_thread(builder.run_ota, device, address))
+    _background_builds.add(task)
+    task.add_done_callback(_background_builds.discard)
+    return {"status": "queued", "address": address}
 
 
 @app.get("/api/devices/{device_id}/toolchain")
